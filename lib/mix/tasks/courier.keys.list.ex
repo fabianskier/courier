@@ -16,7 +16,7 @@ defmodule Mix.Tasks.Courier.Keys.List do
 
   @impl Mix.Task
   def run([]) do
-    Mix.Task.run("app.start")
+    Mix.Courier.start_app()
 
     case Access.list_keys() do
       [] ->

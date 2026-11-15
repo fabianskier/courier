@@ -33,7 +33,7 @@ defmodule Mix.Tasks.Courier.Keys.Create do
   defp create(opts) do
     with {:ok, name} <- Keyword.fetch(opts, :name),
          {:ok, scopes} <- Keyword.fetch(opts, :scopes) do
-      Mix.Task.run("app.start")
+      Mix.Courier.start_app()
 
       case Access.create_key(%{name: name, scopes: parse_scopes(scopes)}) do
         {:ok, %{key: key, token: token}} ->

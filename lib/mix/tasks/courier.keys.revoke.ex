@@ -17,7 +17,7 @@ defmodule Mix.Tasks.Courier.Keys.Revoke do
 
   @impl Mix.Task
   def run([name]) do
-    Mix.Task.run("app.start")
+    Mix.Courier.start_app()
 
     case Access.revoke_key(name) do
       {:ok, key} ->
