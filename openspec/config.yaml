@@ -1,0 +1,44 @@
+schema: spec-driven
+
+context: |
+  Write all artifacts in English.
+  courier is a webhook delivery engine: at-least-once delivery, no ordering guarantee, append-only audit trail.
+  Accepted decisions live in docs/decisions.md; follow them, and propose a new ADR instead of contradicting one.
+  Domain logic lives in contexts under lib/courier/; lib/courier_web/ and lib/courier_mcp/ are thin adapters over the same context functions.
+  Oban (open-source, no Pro) is the only layer that retries; the HTTP client never retries on its own.
+  Every Scenario must be covered by at least one test. Elixir tests: `describe "Requirement: <name>"` with `test "Scenario: <name>"`. Frontend tests use the same names in `describe`/`it`.
+  Existing tests are protected: changes must not modify or delete them unless the proposal says so explicitly. New tests go in new files.
+  Each task must fit Smelt's gate: at most about 400 changed lines and 20 files.
+  Claude is used only via the Claude Code CLI; no Anthropic API key anywhere, including tests and tooling.
+  Original code only: nothing copied from any employer's systems, data or formats.
+
+# Project context (optional)
+# Add only constraints that should guide OpenSpec artifacts and workflows.
+# Include constraints an agent cannot infer by reading the code.
+# Keep general project documentation and discoverable codebase facts out.
+# Example:
+#   context: |
+#     Designs and tasks must cover Windows, macOS, and Linux
+#     Write all artifacts in Spanish
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+#   rules:
+#     proposal:
+#       - Keep proposals under 500 words
+#       - Always state what is out of scope
+#     tasks:
+#       - Break tasks into chunks of max 2 hours
+
+# Per-operation guidance (optional)
+# Add advisory guidance for how apply and archive work should be conducted.
+# This is separate from artifact rules above.
+# Example:
+#   operations:
+#     apply:
+#       guidance:
+#         - Keep test summaries concise
+#     archive:
+#       guidance:
+#         - Summarize the archive outcome before finishing

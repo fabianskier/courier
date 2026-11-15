@@ -1,0 +1,36 @@
+# Roadmap
+
+## Build path
+
+Each step after the bootstraps is one OpenSpec change, built task by task with `mix smelt.task` and merged after human approval. Smelt's gate needs a `.smelt/checks.sh` in the base commit and limits each task to about 400 changed lines and 20 files, so generated scaffolding (Phoenix, Vite, shadcn) is done by hand in bootstrap commits, not through Smelt.
+
+| # | Step | Kind | Covers |
+|---|---|---|---|
+| 0 | **Backend bootstrap**: `mise.toml` (Elixir 1.20.5 / OTP 29, as in Smelt), `mix phx.new . --app courier --no-html --no-assets --no-mailer --no-gettext --binary-id`, `DATABASE_URL`, Oban 2.24 with its migration and `testing: :manual`, `.smelt/checks.sh`, `.smelt/gate.json`, GitHub Actions CI, `compose.yaml` with Postgres. | manual | setup |
+| 1 | `add-access-keys`: API keys (hashed), scopes `ingest`/`read`/`write`, auth plug, `mix courier.keys.create`. | change | FR-4 (auth), ADR API keys |
+| 2 | `add-merchants-endpoints`: merchants, endpoints, event-type filters, URL safety (SSRF, allowlist), encrypted secrets with rotation, REST endpoints. | change | FR-6 to FR-9 |
+| 3 | `add-event-ingestion`: `POST /api/v1/events`, idempotency (repeat and key reuse), fan-out to `pending`/`skipped` deliveries in one transaction, size limit. | change | FR-1 to FR-5, FR-10 |
+| 4 | `add-webhook-delivery`: Standard Webhooks signer, Req client without retries, worker with backoff, jitter, `Retry-After` and retry window, append-only attempts (trigger), queue per endpoint (`QueueManager`), degraded flag. Probably split in two changes (signing + attempts, then retries + queues). | change | FR-11 to FR-20, FR-35, FR-36 |
+| 5 | `add-manual-resend`: resend API, links and actor, `409` for deliveries in progress. | change | FR-21 to FR-23 |
+| 6 | `add-observability`: telemetry events, metrics, LiveDashboard behind the admin key. | change | FR-33, FR-34 |
+| 7 | `add-demo-tools`: demo receiver (signature check, scripted failures), `mix courier.simulate`, full `compose.yaml`, seeds. | change | FR-40, FR-41 |
+| 8 | `add-mcp-server`: `anubis_mcp` at `/mcp`, read tools, `resend_delivery` with `write` scope, call log. | change | FR-29 to FR-32 |
+| 9 | **Frontend bootstrap**: Vite + React + TypeScript strict, TanStack Router and Query, Tailwind, `shadcn init`, build into `priv/static`, dev proxy, frontend checks added to `.smelt/checks.sh` and `.smelt/gate.json` test paths. | manual | setup |
+| 10 | `add-dashboard-deliveries`: token entry, events and deliveries lists with filters, attempt timeline, failed view, resend. | change | FR-24 to FR-26 |
+| 11 | `add-dashboard-endpoints`: merchants and endpoints management, secret shown once, degraded endpoints. | change | FR-27 |
+| 12 | `add-dashboard-live-updates`: PubSub broadcasts, `DashboardChannel`, query invalidation, reconnect. | change | FR-28 |
+| 13 | `add-retention`: daily pruning job and the trigger exception. | change | FR-37 to FR-39 |
+| 14 | **Polish**: README with diagrams, demo GIF, load test script and measured numbers in `docs/analysis.md`. | change / manual | NFRs |
+
+Steps 1 to 8 give a complete backend that can be demoed with `curl`, the demo receiver and Claude Code over MCP, before any frontend work.
+
+## Current status
+
+**Done:**
+- Analysis, architecture and decisions (15 ADRs accepted, 2026-11).
+- Repository: `git init`, `openspec init --tools claude` (project context in `openspec/config.yaml`), own skills synced from `agent-skills`, third-party skills `shadcn` and `mcp-builder` installed (reviewed; `mcp-builder`'s `evaluation.py` needs an API key and is not used).
+- `CLAUDE.md`, `LICENSE` (all rights reserved), `README.md` and `docs/development.md` (how the project is built with Smelt; update its status section when Smelt gains features).
+
+**Next:**
+1. First commit (docs and setup), when the author asks.
+2. Step 0: backend bootstrap.
