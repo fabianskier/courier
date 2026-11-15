@@ -17,6 +17,8 @@ defmodule CourierWeb.Router do
     pipe_through [:api, :authenticated]
 
     get "/me", MeController, :show
+
+    resources "/merchants", MerchantController, only: [:index, :show, :create, :update]
   end
 
   # Enable LiveDashboard in development

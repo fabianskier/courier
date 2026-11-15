@@ -9,7 +9,7 @@ Each task must stay within Smelt's diff budget (about 400 changed lines, tests i
 ## 2. Merchants
 
 - [x] 2.1 Generate the `create_merchants` migration and implement `Courier.Merchants.Merchant`, `Courier.Merchants` (`create_merchant/1`, `get_merchant/1` returning `{:error, :not_found}` for unknown or malformed ids, `list_merchants/1` paginated, `update_merchant/2`) and `Courier.Pagination` as in design.md, plus `test/support/fixtures/merchants_fixtures.ex`; verify with new tests in `test/courier/merchants_test.exs` (creation, invalid name, update and disable, not found) and `test/courier/pagination_test.exs` (pages of 2, 2 and 1 with no repeats, invalid cursor)
-- [ ] 2.2 Implement `CourierWeb.Params.pagination/1`, the fallback clauses for `:invalid_cursor` and `:invalid_pagination`, `MerchantController`, `MerchantJSON` and the merchant routes with `read`/`write` scopes as in design.md; verify with new tests in `test/courier_web/controllers/merchant_controller_test.exs` named after every scenario in `specs/merchants/spec.md`
+- [x] 2.2 Implement `CourierWeb.Params.pagination/1`, the fallback clauses for `:invalid_cursor` and `:invalid_pagination`, `MerchantController`, `MerchantJSON` and the merchant routes with `read`/`write` scopes as in design.md; verify with new tests in `test/courier_web/controllers/merchant_controller_test.exs` named after every scenario in `specs/merchants/spec.md`
 
 ## 3. URL policy and event filter
 

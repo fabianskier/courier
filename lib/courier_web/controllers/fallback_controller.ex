@@ -25,6 +25,20 @@ defmodule CourierWeb.FallbackController do
     respond(conn, :not_found, %{code: "not_found", message: "Resource not found."})
   end
 
+  def call(conn, {:error, :invalid_cursor}) do
+    respond(conn, :unprocessable_entity, %{
+      code: "invalid",
+      message: "The cursor is invalid."
+    })
+  end
+
+  def call(conn, {:error, :invalid_pagination}) do
+    respond(conn, :unprocessable_entity, %{
+      code: "invalid",
+      message: "limit must be an integer from 1 to 100 and cursor a non-empty string."
+    })
+  end
+
   def call(conn, {:error, %Ecto.Changeset{} = changeset}) do
     respond(conn, :unprocessable_entity, %{
       code: "invalid",
