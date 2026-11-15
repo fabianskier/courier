@@ -2,7 +2,7 @@ defmodule Courier.Endpoints do
   @moduledoc """
   Merchant endpoints: creation, lookup, paginated listing and updates. Endpoints
   are never deleted. Secrets (`whsec_` + base64 of 32 random bytes) are only
-  returned by `create_endpoint/1`.
+  returned by `create_endpoint/1` and `rotate_secret/2`.
   """
 
   import Ecto.Query, warn: false
@@ -13,6 +13,8 @@ defmodule Courier.Endpoints do
   alias Courier.Repo
 
   @secret_bytes 32
+  # How long the previous secret keeps signing after a rotation.
+  @overlap_seconds 24 * 60 * 60
 
   @doc "Creates an enabled endpoint for an existing merchant; returns it and its secret."
   @spec create_endpoint(map()) :: {:ok, Endpoint.t(), String.t()} | {:error, Ecto.Changeset.t()}
@@ -63,6 +65,59 @@ defmodule Courier.Endpoints do
     |> Endpoint.update_changeset(attrs)
     |> Repo.update()
   end
+
+  @doc """
+  Rotates the endpoint's signing secret and returns the endpoint and its new
+  secret. The old secret keeps signing for #{div(@overlap_seconds, 3600)} hours after `now`;
+  rotating again during that overlap replaces it with the then-current secret.
+
+  The row is locked while rotating, so concurrent rotations never keep a stale
+  secret as the previous one.
+  """
+  @spec rotate_secret(Endpoint.t(), DateTime.t()) ::
+          {:ok, Endpoint.t(), String.t()} | {:error, :not_found | Ecto.Changeset.t()}
+  def rotate_secret(%Endpoint{id: id}, %DateTime{} = now \\ DateTime.utc_now()) do
+    secret = generate_secret()
+    expires_at = now |> DateTime.add(@overlap_seconds, :second) |> to_usec()
+
+    Repo.transact(fn ->
+      with %Endpoint{} = locked <-
+             Repo.one(from e in Endpoint, where: e.id == ^id, lock: "FOR UPDATE"),
+           {:ok, endpoint} <-
+             locked |> Endpoint.rotate_changeset(secret, expires_at) |> Repo.update() do
+        {:ok, {endpoint, secret}}
+      else
+        nil -> {:error, :not_found}
+        {:error, changeset} -> {:error, changeset}
+      end
+    end)
+    |> case do
+      {:ok, {endpoint, secret}} -> {:ok, endpoint, secret}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @doc """
+  Returns the secrets that currently sign for the endpoint: `[secret]`, or
+  `[secret, previous_secret]` while `now` is before the overlap's end.
+  """
+  @spec signing_secrets(Endpoint.t(), DateTime.t()) :: [String.t(), ...]
+  def signing_secrets(
+        %Endpoint{secret: secret} = endpoint,
+        %DateTime{} = now \\ DateTime.utc_now()
+      )
+      when is_binary(secret) do
+    case endpoint do
+      %Endpoint{previous_secret: previous, previous_secret_expires_at: %DateTime{} = expires_at}
+      when is_binary(previous) ->
+        if DateTime.before?(now, expires_at), do: [secret, previous], else: [secret]
+
+      _ ->
+        [secret]
+    end
+  end
+
+  defp to_usec(%DateTime{microsecond: {us, _}} = datetime), do: %{datetime | microsecond: {us, 6}}
 
   defp generate_secret do
     "whsec_" <> Base.encode64(:crypto.strong_rand_bytes(@secret_bytes))

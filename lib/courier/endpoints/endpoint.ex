@@ -56,6 +56,20 @@ defmodule Courier.Endpoints.Endpoint do
     |> validate()
   end
 
+  @doc """
+  Changeset that makes `secret` the signing secret and keeps the current one as
+  `previous_secret` until `expires_at`, replacing any earlier previous secret.
+  """
+  @spec rotate_changeset(t(), String.t(), DateTime.t()) :: Ecto.Changeset.t()
+  def rotate_changeset(%__MODULE__{secret: current} = endpoint, secret, %DateTime{} = expires_at)
+      when is_binary(current) and is_binary(secret) do
+    change(endpoint,
+      secret: secret,
+      previous_secret: current,
+      previous_secret_expires_at: expires_at
+    )
+  end
+
   defp validate(changeset) do
     changeset
     |> update_change(:url, &(&1 && String.trim(&1)))
