@@ -31,6 +31,7 @@ Steps 1 to 8 give a complete backend that can be demoed with `curl`, the demo re
 - Repository: `git init`, `openspec init --tools claude` (project context in `openspec/config.yaml`), own skills synced from `agent-skills`, third-party skills `shadcn` and `mcp-builder` installed (reviewed; `mcp-builder`'s `evaluation.py` needs an API key and is not used).
 - `CLAUDE.md`, `LICENSE` (all rights reserved), `README.md` and `docs/development.md` (how the project is built with Smelt; update its status section when Smelt gains features).
 
+- Step 0, backend bootstrap: Phoenix 1.8.16 (`--no-html --no-assets --no-mailer --no-gettext --binary-id`), `DATABASE_URL` from `mise.toml` in dev, Oban 2.24 (Basic engine, no static queues, Pruner 7 days, Lifeline, migration v14, `testing: :manual`), `.smelt/checks.sh`, GitHub Actions CI (mise + Postgres 18 service, runs the gate checks), `compose.yaml` with Postgres 18. LiveDashboard at `/dev/dashboard` in dev only.
+
 **Next:**
-1. First commit (docs and setup), when the author asks.
-2. Step 0: backend bootstrap.
+1. OpenSpec change `add-access-keys` (step 1), proposed interactively, then built with `mix smelt.task`.

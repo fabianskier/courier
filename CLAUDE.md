@@ -1,3 +1,5 @@
+@AGENTS.md
+
 # courier
 
 A webhook delivery engine in Elixir with a React + shadcn/ui dashboard and an MCP server. Public portfolio project.
