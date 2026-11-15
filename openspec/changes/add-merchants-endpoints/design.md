@@ -46,7 +46,7 @@ Rotation: `previous_secret = secret`, `secret = new`, `previous_secret_expires_a
 1. Parse with `URI.new/1`; require scheme `https` (or `http` when `require_https: false`), a non-empty host, no `userinfo`.
 2. If the host (case-insensitive) is in `allowed_hosts`, accept.
 3. If the host is an IP literal (`:inet.parse_address/1`, brackets stripped for IPv6), check it; otherwise resolve it with the resolver (`resolve(host) :: {:ok, [:inet.ip_address()]} | {:error, term}`), which by default merges `:inet.getaddrs/2` for `:inet` and `:inet6`. No addresses → reject.
-4. Every resolved address must be public. Blocked IPv4: `0.0.0.0/8`, `10.0.0.0/8`, `100.64.0.0/10`, `127.0.0.0/8`, `169.254.0.0/16`, `172.16.0.0/12`, `192.0.0.0/24`, `192.168.0.0/16`, `198.18.0.0/15`, `224.0.0.0/4`, `240.0.0.0/4` (includes broadcast). Blocked IPv6: `::/128`, `::1/128`, `fc00::/7`, `fe80::/10`, `ff00::/8`; IPv4-mapped (`::ffff:0:0/96`) and NAT64 (`64:ff9b::/96`) addresses are checked as their embedded IPv4.
+4. Every resolved address must be public. Blocked IPv4: `0.0.0.0/8`, `10.0.0.0/8`, `100.64.0.0/10`, `127.0.0.0/8`, `169.254.0.0/16`, `172.16.0.0/12`, `192.0.0.0/24`, `192.168.0.0/16`, `198.18.0.0/15`, `224.0.0.0/4`, `240.0.0.0/4` (includes broadcast). Blocked IPv6: `::/96` (unspecified, loopback and the deprecated IPv4-compatible addresses such as `::127.0.0.1`), `fc00::/7`, `fe80::/10`, `ff00::/8`; IPv4-mapped (`::ffff:0:0/96`) and NAT64 (`64:ff9b::/96`) addresses are checked as their embedded IPv4.
 
 The changeset turns any error into a single message on `url` ("must be a public https URL") without echoing resolved addresses.
 
