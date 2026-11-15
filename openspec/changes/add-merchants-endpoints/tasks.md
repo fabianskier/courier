@@ -4,7 +4,7 @@ Each task must stay within Smelt's diff budget (about 400 changed lines, tests i
 
 ## 1. Encryption
 
-- [ ] 1.1 Add `{:cloak_ecto, "~> 1.3"}`, `Courier.Vault` (AES.GCM, tag `"AES.GCM.V1"`), `Courier.Encrypted.Binary`, the vault as a child of `Courier.Application`, fixed non-secret keys in `config/dev.exs` and `config/test.exs`, and a required `COURIER_ENCRYPTION_KEY` (base64 of 32 bytes, clear error when missing or the wrong size) in the prod block of `config/runtime.exs`, as in design.md; verify with a new test `test/courier/vault_test.exs` that a value encrypts to different ciphertext and decrypts back, and that `sh .smelt/checks.sh` passes
+- [x] 1.1 Add `{:cloak_ecto, "~> 1.3"}`, `Courier.Vault` (AES.GCM, tag `"AES.GCM.V1"`), `Courier.Encrypted.Binary`, the vault as a child of `Courier.Application`, fixed non-secret keys in `config/dev.exs` and `config/test.exs`, and a required `COURIER_ENCRYPTION_KEY` (base64 of 32 bytes, clear error when missing or the wrong size) in the prod block of `config/runtime.exs`, as in design.md; verify with a new test `test/courier/vault_test.exs` that a value encrypts to different ciphertext and decrypts back, and that `sh .smelt/checks.sh` passes
 
 ## 2. Merchants
 

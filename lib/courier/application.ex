@@ -9,6 +9,7 @@ defmodule Courier.Application do
   def start(_type, _args) do
     children = [
       CourierWeb.Telemetry,
+      Courier.Vault,
       Courier.Repo,
       {Oban, Application.fetch_env!(:courier, Oban)},
       {DNSCluster, query: Application.get_env(:courier, :dns_cluster_query) || :ignore},

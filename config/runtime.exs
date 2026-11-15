@@ -61,6 +61,31 @@ if config_env() == :prod do
       You can generate one by calling: mix phx.gen.secret
       """
 
+  # Key for secrets encrypted at rest (Courier.Vault, AES-256-GCM).
+  # Losing it makes stored endpoint secrets unreadable.
+  encryption_key =
+    System.get_env("COURIER_ENCRYPTION_KEY") ||
+      raise """
+      environment variable COURIER_ENCRYPTION_KEY is missing.
+      It must be the base64 encoding of 32 random bytes.
+      You can generate one by calling: openssl rand -base64 32
+      """
+
+  encryption_key =
+    case Base.decode64(encryption_key) do
+      {:ok, <<_::binary-size(32)>> = key} ->
+        key
+
+      _ ->
+        raise """
+        environment variable COURIER_ENCRYPTION_KEY is invalid.
+        It must be the base64 encoding of exactly 32 bytes.
+        You can generate one by calling: openssl rand -base64 32
+        """
+    end
+
+  config :courier, Courier.Vault, key: encryption_key
+
   host = System.get_env("PHX_HOST") || "example.com"
 
   config :courier, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")

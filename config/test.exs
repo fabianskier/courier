@@ -3,6 +3,10 @@ import Config
 # Jobs are only inserted in tests; run them explicitly with Oban.Testing.
 config :courier, Oban, testing: :manual
 
+# Fixed, NON-SECRET encryption key for tests only (exactly 32 bytes).
+# Production reads COURIER_ENCRYPTION_KEY in config/runtime.exs.
+config :courier, Courier.Vault, key: "courier-test-key-not-a-secret!!!"
+
 # Configure your database
 #
 # The MIX_TEST_PARTITION environment variable can be used

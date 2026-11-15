@@ -50,7 +50,8 @@ defmodule Courier.MixProject do
       {:jason, "~> 1.2"},
       {:dns_cluster, "~> 0.2.0"},
       {:bandit, "~> 1.5"},
-      {:oban, "~> 2.24"}
+      {:oban, "~> 2.24"},
+      {:cloak_ecto, "~> 1.3"}
     ]
   end
 

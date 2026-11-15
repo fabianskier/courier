@@ -10,6 +10,10 @@ config :courier, Courier.Repo,
   show_sensitive_data_on_connection_error: true,
   pool_size: 10
 
+# Fixed, NON-SECRET encryption key for development only (exactly 32 bytes).
+# Production reads COURIER_ENCRYPTION_KEY in config/runtime.exs.
+config :courier, Courier.Vault, key: "courier-dev-key-not-a-secret!!!!"
+
 # For development, we disable any cache and enable
 # debugging and code reloading.
 #
