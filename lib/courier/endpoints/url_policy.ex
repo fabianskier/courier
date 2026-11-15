@@ -52,8 +52,8 @@ defmodule Courier.Endpoints.URLPolicy do
   ]
 
   @blocked_ipv6 [
-    {{0, 0, 0, 0, 0, 0, 0, 0}, 128},
-    {{0, 0, 0, 0, 0, 0, 0, 1}, 128},
+    # Unspecified, loopback and deprecated IPv4-compatible addresses (::a.b.c.d)
+    {{0, 0, 0, 0, 0, 0, 0, 0}, 96},
     {{0xFC00, 0, 0, 0, 0, 0, 0, 0}, 7},
     {{0xFE80, 0, 0, 0, 0, 0, 0, 0}, 10},
     {{0xFF00, 0, 0, 0, 0, 0, 0, 0}, 8}
