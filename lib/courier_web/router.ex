@@ -19,6 +19,8 @@ defmodule CourierWeb.Router do
     get "/me", MeController, :show
 
     resources "/merchants", MerchantController, only: [:index, :show, :create, :update]
+    resources "/endpoints", EndpointController, only: [:index, :show, :create, :update]
+    post "/endpoints/:id/rotate_secret", EndpointController, :rotate_secret
   end
 
   # Enable LiveDashboard in development
