@@ -33,7 +33,7 @@ Steps 1 to 8 give a complete backend that can be demoed with `curl`, the demo re
 
 - Step 0, backend bootstrap: Phoenix 1.8.16 (`--no-html --no-assets --no-mailer --no-gettext --binary-id`), `DATABASE_URL` from `mise.toml` in dev, Oban 2.24 (Basic engine, no static queues, Pruner 7 days, Lifeline, migration v14, `testing: :manual`), `.smelt/checks.sh`, GitHub Actions CI (mise + Postgres 18 service, runs the gate checks), `compose.yaml` with Postgres 18. LiveDashboard at `/dev/dashboard` in dev only.
 
-- Step 1, `add-access-keys`: `Courier.Access` with hashed API keys and scopes `ingest`/`read`/`write`, `mix courier.keys.create`/`list`/`revoke`, Bearer authentication and scope plugs, the `{"error": {"code", "message"}}` error shape and `GET /api/v1/me`. Documented in `docs/architecture.md` ("Authentication").
+- Step 1, `add-access-keys`: `Courier.Access` with hashed API keys and scopes `ingest`/`read`/`write`, `mix courier.keys.create`/`list`/`revoke`, Bearer authentication and scope plugs, the `{"error": {"code", "message"}}` error shape and `GET /api/v1/me`. Documented in `docs/architecture.md` ("Authentication"); living spec `openspec/specs/api-access/spec.md` (archived 2026-11-15).
 
 **Next:**
-1. Archive `add-access-keys`, then propose OpenSpec change `add-merchants-endpoints` (step 2) and build it with `mix smelt.task`.
+1. Propose OpenSpec change `add-merchants-endpoints` (step 2) and build it with `mix smelt.task`.
