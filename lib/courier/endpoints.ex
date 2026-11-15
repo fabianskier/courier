@@ -26,7 +26,8 @@ defmodule Courier.Endpoints do
       |> Endpoint.create_changeset(attrs, secret)
       |> validate_merchant_exists()
 
-    with {:ok, endpoint} <- Repo.insert(changeset) do
+    # Ecto logs query parameters before Cloak encrypts them; never log the secret.
+    with {:ok, endpoint} <- Repo.insert(changeset, log: false) do
       {:ok, endpoint, secret}
     end
   end
@@ -83,8 +84,12 @@ defmodule Courier.Endpoints do
     Repo.transact(fn ->
       with %Endpoint{} = locked <-
              Repo.one(from e in Endpoint, where: e.id == ^id, lock: "FOR UPDATE"),
+           # Ecto logs query parameters before Cloak encrypts them; never log
+           # the new or previous secret.
            {:ok, endpoint} <-
-             locked |> Endpoint.rotate_changeset(secret, expires_at) |> Repo.update() do
+             locked
+             |> Endpoint.rotate_changeset(secret, expires_at)
+             |> Repo.update(log: false) do
         {:ok, {endpoint, secret}}
       else
         nil -> {:error, :not_found}

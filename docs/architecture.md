@@ -362,4 +362,5 @@ curl -s -X POST http://localhost:4000/api/v1/endpoints -H "Authorization: Bearer
 - `cloak` 1.1.4 and `cloak_ecto` 1.3.0 have open advisories: CVE-2026-95105 (the AES-CTR cipher is unauthenticated) and CVE-2026-94206 (the PBKDF2 field ignores the iteration count). They do not affect courier, which uses only `Cloak.Ciphers.AES.GCM` and `Cloak.Ecto.Binary`. Rule: never use Cloak's AES-CTR cipher or its PBKDF2 fields, and upgrade both packages when fixed versions are released.
 - URL validation runs at creation **and** before every request (after DNS resolution), with a dev/demo-only host allowlist.
 - Secrets, full signatures and `Authorization` headers are never logged or stored.
+- Any repo call that writes a secret column passes `log: false`: Ecto logs query parameters at `debug` before Cloak encrypts them, so the plaintext would otherwise reach the logs.
 - MCP tool results mark payloads and response bodies as untrusted data; `resend_delivery` needs `write` scope.
