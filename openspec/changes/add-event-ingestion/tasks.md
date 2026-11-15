@@ -4,7 +4,7 @@ Each task must stay within the gate's diff budget (about 600 changed lines, test
 
 ## 1. Test support
 
-- [ ] 1.1 Add `CourierWeb.LogCapture.capture_debug_log/1` in a new file `test/support/log_capture.ex` as in design.md, and a new test file `test/courier_web/plugs/token_logging_test.exs` (`async: false`, `describe "Requirement: Tokens never leak"`, `test "Scenario: Rejected token not echoed"`) that sends a request with an unknown token through `GET /api/v1/me`, asserts the captured debug log is not empty and does not contain the token, and that the response body does not contain it; verify `sh .smelt/checks.sh` passes
+- [x] 1.1 Add `CourierWeb.LogCapture.capture_debug_log/1` in a new file `test/support/log_capture.ex` as in design.md, and a new test file `test/courier_web/plugs/token_logging_test.exs` (`async: false`, `describe "Requirement: Tokens never leak"`, `test "Scenario: Rejected token not echoed"`) that sends a request with an unknown token through `GET /api/v1/me`, asserts the captured debug log is not empty and does not contain the token, and that the response body does not contain it; verify `sh .smelt/checks.sh` passes
 
 ## 2. Data and ingestion
 
