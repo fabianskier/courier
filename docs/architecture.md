@@ -266,6 +266,48 @@ Key constraints:
 
 Errors follow one JSON shape: `{"error": {"code": "...", "message": "...", "details": {...}}}`.
 
+## Authentication
+
+Every request to `/api/v1` must carry an API key in the `Authorization` header:
+
+```
+Authorization: Bearer ck_...
+```
+
+Tokens start with `ck_` followed by 32 bytes of secure randomness. Only a SHA-256 hash is stored; the plaintext is printed once, when the key is created.
+
+**Scopes.** Each key holds one or more of `ingest` (send events), `read` (query data) and `write` (change data, resend). Each route declares the scope it needs; scopes are independent, so `write` does not imply `read`.
+
+**Errors.** API errors share one shape, with `details` only when there are field errors:
+
+```json
+{"error": {"code": "unauthorized", "message": "A valid API key is required."}}
+```
+
+| Situation | Status | Code |
+|---|---|---|
+| Missing or malformed header, unknown token, revoked key | `401` (with `www-authenticate: Bearer`) | `unauthorized` |
+| Valid key without the route's scope | `403` | `forbidden` |
+| Resource not found | `404` | `not_found` |
+| Invalid input (field errors in `details`) | `422` | `invalid` |
+
+Error responses never echo the token, and tokens are never logged.
+
+**Managing keys.** Keys are managed from the command line:
+
+```sh
+mix courier.keys.create --name dashboard --scopes read,write   # prints the token once
+mix courier.keys.list                                          # name, scopes, created, status; never tokens
+mix courier.keys.revoke dashboard                              # stops working at once, stays listed
+```
+
+**Checking a token.** `GET /api/v1/me` works with any active key, whatever its scopes, and returns the key's name and scopes. The dashboard uses it to check a token on sign-in.
+
+```sh
+curl -s http://localhost:4000/api/v1/me -H "Authorization: Bearer $COURIER_TOKEN"
+# {"name":"dashboard","scopes":["read","write"]}
+```
+
 ## Security notes
 
 - API keys are random tokens stored as SHA-256 hashes; the plaintext is shown once. Scopes: `ingest`, `read`, `write`.
