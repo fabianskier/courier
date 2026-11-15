@@ -39,3 +39,4 @@ Steps 1 to 8 give a complete backend that can be demoed with `curl`, the demo re
 
 **Next:**
 1. Propose OpenSpec change `add-event-ingestion` (step 3) and build it with `mix smelt.task`.
+   - Include in it: move `capture_debug_log/1` from `test/courier_web/controllers/endpoint_secret_logging_test.exs` to `test/support/`, and add a new test for the `api-access` scenario "Rejected token not echoed" that uses it. The existing test only raises the process log level, which cannot go below the primary level (`:warning` in test), so it captures nothing and would not catch a regression.
