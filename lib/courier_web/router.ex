@@ -5,8 +5,18 @@ defmodule CourierWeb.Router do
     plug :accepts, ["json"]
   end
 
+  pipeline :authenticated do
+    plug CourierWeb.Plugs.Authenticate
+  end
+
   scope "/api", CourierWeb do
     pipe_through :api
+  end
+
+  scope "/api/v1", CourierWeb do
+    pipe_through [:api, :authenticated]
+
+    get "/me", MeController, :show
   end
 
   # Enable LiveDashboard in development

@@ -10,7 +10,7 @@
 
 ## 3. Authenticated API
 
-- [ ] 3.1 Implement `CourierWeb.APIErrorJSON`, `CourierWeb.FallbackController`, the `Authenticate` and `RequireScope` plugs, the `/api/v1` scope with an `:authenticated` pipeline, and `GET /api/v1/me` (`MeController`); verify with new tests in `test/courier_web/` named after the spec for "Valid token", "Missing token", "Unknown token", "Malformed header", "Revoked key no longer authenticates" (over HTTP), "Who am I", "Error body", "Rejected token not echoed", and, for scopes, "Key with the required scope" and "Key without the required scope" using a test-only route or by calling `RequireScope` directly on a conn
+- [x] 3.1 Implement `CourierWeb.APIErrorJSON`, `CourierWeb.FallbackController`, the `Authenticate` and `RequireScope` plugs, the `/api/v1` scope with an `:authenticated` pipeline, and `GET /api/v1/me` (`MeController`); verify with new tests in `test/courier_web/` named after the spec for "Valid token", "Missing token", "Unknown token", "Malformed header", "Revoked key no longer authenticates" (over HTTP), "Who am I", "Error body", "Rejected token not echoed", and, for scopes, "Key with the required scope" and "Key without the required scope" using a test-only route or by calling `RequireScope` directly on a conn
 - [ ] 3.2 Document API authentication (header, scopes, error shape, the Mix tasks and `GET /api/v1/me` with a `curl` example) in a new "Authentication" section of `docs/architecture.md`, and mark step 1 done in `docs/roadmap.md`; verify `mix precommit`, `sh .smelt/checks.sh` and `openspec validate add-access-keys --strict` pass and every scenario in `specs/api-access/spec.md` has a test with the same name
 
 ## Workflow follow-up
