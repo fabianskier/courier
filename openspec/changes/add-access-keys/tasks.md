@@ -6,7 +6,7 @@
 
 ## 2. Command line
 
-- [ ] 2.1 Implement `mix courier.keys.create`, `mix courier.keys.list` and `mix courier.keys.revoke` as in design.md, with `@shortdoc` and `@moduledoc` usage; verify with new tests in `test/mix/tasks/courier_keys_test.exs` for "Create from the command line", "Invalid input from the command line" and "List and revoke from the command line"
+- [x] 2.1 Implement `mix courier.keys.create`, `mix courier.keys.list` and `mix courier.keys.revoke` as in design.md, with `@shortdoc` and `@moduledoc` usage; verify with new tests in `test/mix/tasks/courier_keys_test.exs` for "Create from the command line", "Invalid input from the command line" and "List and revoke from the command line"
 
 ## 3. Authenticated API
 
