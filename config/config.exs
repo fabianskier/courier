@@ -24,6 +24,13 @@ config :courier, Oban,
     Oban.Plugins.Lifeline
   ]
 
+# Endpoint URL policy (SSRF protection). Production uses these defaults;
+# dev and test override them.
+config :courier, Courier.Endpoints.URLPolicy,
+  require_https: true,
+  allowed_hosts: [],
+  resolver: Courier.Endpoints.DNSResolver
+
 # Configure the endpoint
 config :courier, CourierWeb.Endpoint,
   url: [host: "localhost"],

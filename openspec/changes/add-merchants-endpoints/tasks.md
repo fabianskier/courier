@@ -13,7 +13,7 @@ Each task must stay within Smelt's diff budget (about 400 changed lines, tests i
 
 ## 3. URL policy and event filter
 
-- [ ] 3.1 Implement `Courier.Endpoints.URLPolicy` and `Courier.Endpoints.DNSResolver` as in design.md, the convention-based `Courier.Endpoints.TestResolver` in a new file `test/support/test_resolver.ex`, and the per-environment URL policy config; verify with new tests in `test/courier/endpoints/url_policy_test.exs` named "Scenario: Plain http rejected", "Scenario: Private address rejected" (every IPv4 and IPv6 range in design.md, IP literals and resolved names, IPv4-mapped IPv6), "Scenario: Credentials in URL rejected", "Scenario: Unresolvable host rejected" and "Scenario: Allowlisted host accepted", plus a public https URL that passes
+- [x] 3.1 Implement `Courier.Endpoints.URLPolicy` and `Courier.Endpoints.DNSResolver` as in design.md, the convention-based `Courier.Endpoints.TestResolver` in a new file `test/support/test_resolver.ex`, and the per-environment URL policy config; verify with new tests in `test/courier/endpoints/url_policy_test.exs` named "Scenario: Plain http rejected", "Scenario: Private address rejected" (every IPv4 and IPv6 range in design.md, IP literals and resolved names, IPv4-mapped IPv6), "Scenario: Credentials in URL rejected", "Scenario: Unresolvable host rejected" and "Scenario: Allowlisted host accepted", plus a public https URL that passes
 - [ ] 3.2 Implement `Courier.Endpoints.EventFilter` (`valid_pattern?/1`, `matches?/2`) as in design.md; verify with new tests in `test/courier/endpoints/event_filter_test.exs` named "Scenario: Exact and wildcard matching", "Scenario: Empty list matches everything" and "Scenario: Invalid pattern rejected" (at the function level)
 
 ## 4. Endpoints

@@ -7,6 +7,13 @@ config :courier, Oban, testing: :manual
 # Production reads COURIER_ENCRYPTION_KEY in config/runtime.exs.
 config :courier, Courier.Vault, key: "courier-test-key-not-a-secret!!!"
 
+# URL policy in tests never touches the network: hosts resolve by convention
+# (see test/support/test_resolver.ex).
+config :courier, Courier.Endpoints.URLPolicy,
+  require_https: true,
+  allowed_hosts: [],
+  resolver: Courier.Endpoints.TestResolver
+
 # Configure your database
 #
 # The MIX_TEST_PARTITION environment variable can be used

@@ -14,6 +14,11 @@ config :courier, Courier.Repo,
 # Production reads COURIER_ENCRYPTION_KEY in config/runtime.exs.
 config :courier, Courier.Vault, key: "courier-dev-key-not-a-secret!!!!"
 
+# Allow plain http and local receivers in development.
+config :courier, Courier.Endpoints.URLPolicy,
+  require_https: false,
+  allowed_hosts: ["localhost", "127.0.0.1", "demo-receiver"]
+
 # For development, we disable any cache and enable
 # debugging and code reloading.
 #
