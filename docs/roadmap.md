@@ -38,5 +38,4 @@ Steps 1 to 8 give a complete backend that can be demoed with `curl`, the demo re
 - Step 2, `add-merchants-endpoints`: `Courier.Merchants` and `Courier.Endpoints` with their REST API (`read`/`write` scopes), event-type filters, the URL policy (https, no credentials, public addresses only after DNS resolution, host allowlist), `whsec_` signing secrets encrypted at rest with Cloak (`COURIER_ENCRYPTION_KEY`) and rotation with a 24 h overlap, and keyset cursor pagination. `mix courier.keys.*` no longer print SQL. Documented in `docs/architecture.md` ("Merchants and endpoints").
 
 **Next:**
-1. Archive `add-merchants-endpoints` (`openspec archive add-merchants-endpoints`).
-2. Propose OpenSpec change `add-event-ingestion` (step 3) and build it with `mix smelt.task`.
+1. Propose OpenSpec change `add-event-ingestion` (step 3) and build it with `mix smelt.task`.
