@@ -5,25 +5,18 @@ defmodule Courier.MerchantEndpointsTest do
   import Courier.MerchantsFixtures
 
   alias Courier.Endpoints
-  alias Courier.Endpoints.Endpoint
   alias Courier.Merchants
-  alias Courier.Merchants.Merchant
 
   describe "Requirement: Update and disable merchants" do
     test "Scenario: Disable a merchant" do
       merchant = merchant_fixture()
-      enabled = endpoint_fixture(%{merchant_id: merchant.id})
+      {enabled, _} = endpoint_fixture(%{merchant_id: merchant.id})
+      {disabled, _} = endpoint_fixture(%{merchant_id: merchant.id})
+      {:ok, _} = Endpoints.update_endpoint(disabled, %{enabled: false})
 
-      {:ok, disabled} =
-        %{merchant_id: merchant.id}
-        |> endpoint_fixture()
-        |> Endpoints.update_endpoint(%{enabled: false})
-
-      assert {:ok, %Merchant{enabled: false}} =
-               Merchants.update_merchant(merchant, %{enabled: false})
-
-      assert {:ok, %Endpoint{enabled: true}} = Endpoints.get_endpoint(enabled.id)
-      assert {:ok, %Endpoint{enabled: false}} = Endpoints.get_endpoint(disabled.id)
+      assert {:ok, %{enabled: false}} = Merchants.update_merchant(merchant, %{enabled: false})
+      assert {:ok, %{enabled: true}} = Endpoints.get_endpoint(enabled.id)
+      assert {:ok, %{enabled: false}} = Endpoints.get_endpoint(disabled.id)
     end
   end
 end

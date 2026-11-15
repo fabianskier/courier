@@ -1,12 +1,8 @@
 defmodule Courier.Endpoints do
   @moduledoc """
-  Merchant endpoints: creation with a signing secret, lookup, paginated listing
-  (optionally for one merchant) and updates. Endpoints are never deleted.
-
-  URLs are checked with `Courier.Endpoints.URLPolicy` and event-type patterns
-  with `Courier.Endpoints.EventFilter`. Secrets follow the Standard Webhooks
-  format (`whsec_` + base64 of 32 random bytes) and are only returned by
-  `create_endpoint/1`.
+  Merchant endpoints: creation, lookup, paginated listing and updates. Endpoints
+  are never deleted. Secrets (`whsec_` + base64 of 32 random bytes) are only
+  returned by `create_endpoint/1`.
   """
 
   import Ecto.Query, warn: false
@@ -18,10 +14,7 @@ defmodule Courier.Endpoints do
 
   @secret_bytes 32
 
-  @doc """
-  Creates an enabled endpoint for an existing merchant and returns it with its
-  new signing secret.
-  """
+  @doc "Creates an enabled endpoint for an existing merchant; returns it and its secret."
   @spec create_endpoint(map()) :: {:ok, Endpoint.t(), String.t()} | {:error, Ecto.Changeset.t()}
   def create_endpoint(attrs) when is_map(attrs) do
     secret = generate_secret()

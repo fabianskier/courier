@@ -10,38 +10,11 @@ defmodule Courier.Endpoints.Endpoint do
 
   import Ecto.Changeset
 
-  alias Courier.Endpoints.EventFilter
-  alias Courier.Endpoints.URLPolicy
+  alias Courier.Endpoints.{EventFilter, URLPolicy}
 
-  @type t :: %__MODULE__{
-          id: Ecto.UUID.t() | nil,
-          merchant_id: Ecto.UUID.t() | nil,
-          url: String.t() | nil,
-          description: String.t() | nil,
-          event_types: [String.t()],
-          enabled: boolean(),
-          retry_window_seconds: pos_integer(),
-          retry_on_4xx: boolean(),
-          max_concurrency: pos_integer(),
-          secret: String.t() | nil,
-          previous_secret: String.t() | nil,
-          previous_secret_expires_at: DateTime.t() | nil,
-          inserted_at: DateTime.t() | nil,
-          updated_at: DateTime.t() | nil
-        }
+  @type t :: %__MODULE__{}
 
-  @max_event_types 50
-  @url_error "must be a public https URL"
-
-  @update_fields [
-    :url,
-    :description,
-    :event_types,
-    :enabled,
-    :retry_window_seconds,
-    :retry_on_4xx,
-    :max_concurrency
-  ]
+  @update_fields ~w(url description event_types enabled retry_window_seconds retry_on_4xx max_concurrency)a
 
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
@@ -64,10 +37,7 @@ defmodule Courier.Endpoints.Endpoint do
     timestamps()
   end
 
-  @doc """
-  Changeset for a new endpoint. New endpoints are always enabled; `secret` is
-  set by the caller, not cast.
-  """
+  @doc "Changeset for a new, always enabled endpoint with the given `secret`."
   @spec create_changeset(t(), map(), String.t()) :: Ecto.Changeset.t()
   def create_changeset(endpoint, attrs, secret) when is_binary(secret) do
     endpoint
@@ -88,49 +58,26 @@ defmodule Courier.Endpoints.Endpoint do
 
   defp validate(changeset) do
     changeset
-    |> update_change(:url, &trim/1)
-    |> validate_required([
-      :url,
-      :event_types,
-      :enabled,
-      :retry_window_seconds,
-      :retry_on_4xx,
-      :max_concurrency
-    ])
+    |> update_change(:url, &(&1 && String.trim(&1)))
+    |> validate_required(@update_fields -- [:description])
     |> validate_length(:url, max: 2048)
-    |> validate_change(:url, &validate_url/2)
+    |> validate_change(:url, fn :url, url ->
+      if URLPolicy.check(url) == :ok, do: [], else: [url: "must be a public https URL"]
+    end)
     |> validate_length(:description, max: 1024)
     |> update_change(:event_types, &Enum.uniq/1)
-    |> validate_length(:event_types, max: @max_event_types)
-    |> validate_change(:event_types, &validate_event_types/2)
+    |> validate_length(:event_types, max: 50)
+    |> validate_change(:event_types, fn :event_types, patterns ->
+      if Enum.all?(patterns, &EventFilter.valid_pattern?/1),
+        do: [],
+        else: [event_types: "has an invalid pattern"]
+    end)
     |> validate_number(:retry_window_seconds,
       greater_than_or_equal_to: 60,
       less_than_or_equal_to: 86_400
     )
     |> validate_number(:max_concurrency, greater_than_or_equal_to: 1, less_than_or_equal_to: 50)
-    |> check_constraint(:retry_window_seconds,
-      name: :retry_window_seconds_range,
-      message: "must be between 60 and 86400"
-    )
-    |> check_constraint(:max_concurrency,
-      name: :max_concurrency_range,
-      message: "must be between 1 and 50"
-    )
+    |> check_constraint(:retry_window_seconds, name: :retry_window_seconds_range)
+    |> check_constraint(:max_concurrency, name: :max_concurrency_range)
   end
-
-  defp validate_url(field, url) do
-    case URLPolicy.check(url) do
-      :ok -> []
-      {:error, _reason} -> [{field, @url_error}]
-    end
-  end
-
-  defp validate_event_types(field, patterns) do
-    if Enum.all?(patterns, &EventFilter.valid_pattern?/1),
-      do: [],
-      else: [{field, "has an invalid pattern"}]
-  end
-
-  defp trim(value) when is_binary(value), do: String.trim(value)
-  defp trim(value), do: value
 end
