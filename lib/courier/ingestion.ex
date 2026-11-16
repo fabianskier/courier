@@ -1,17 +1,20 @@
 defmodule Courier.Ingestion do
   @moduledoc """
   Event ingestion: validates an event, deduplicates it by idempotency key and
-  stores it with one delivery per enabled endpoint of its merchant, all in one
-  transaction.
+  stores it with one delivery per enabled endpoint of its merchant and one
+  delivery job per pending delivery, all in one transaction.
 
   A repeat (same key, same `type`, `merchant_id`, `payload` and `occurred_at`
   as sent) returns the stored event; the same key with a different body is
-  rejected. Key order inside `payload` does not matter.
+  rejected. Key order inside `payload` does not matter. A repeat is answered
+  even after the merchant was disabled. Deliveries are always listed by
+  endpoint creation, then by delivery creation.
   """
 
   import Ecto.Query, warn: false
 
   alias Courier.Delivery.Delivery
+  alias Courier.Delivery.{Queues, Worker}
   alias Courier.Endpoints.{Endpoint, EventFilter}
   alias Courier.Ingestion.Event
   alias Courier.Merchants.Merchant
@@ -39,14 +42,26 @@ defmodule Courier.Ingestion do
   @spec ingest(map(), String.t() | nil) ::
           {:ok, :created | :repeat, Event.t()} | {:error, error()}
   def ingest(attrs, idempotency_key) when is_map(attrs) do
-    with {:ok, multi} <- ingest_multi(attrs, idempotency_key) do
-      case Repo.transact(multi) do
-        {:ok, %{event: event, deliveries: deliveries}} ->
-          {:ok, :created, %{event | deliveries: deliveries}}
+    case ingest_multi(attrs, idempotency_key) do
+      {:ok, multi} ->
+        case Repo.transact(multi) do
+          {:ok, %{event: event, deliveries: deliveries}} ->
+            {:ok, :created, %{event | deliveries: deliveries}}
 
-        {:error, :event, :duplicate, _changes} ->
-          load_original(idempotency_key, request_hash(attrs))
-      end
+          {:error, :event, :duplicate, _changes} ->
+            load_original(idempotency_key, request_hash(attrs))
+        end
+
+      # An event stored before the merchant was disabled is answered as for an
+      # enabled merchant: a repeat or a reused key.
+      {:error, :merchant_disabled} ->
+        case Repo.get_by(Event, idempotency_key: idempotency_key) do
+          nil -> {:error, :merchant_disabled}
+          %Event{} = event -> compare_original(event, request_hash(attrs))
+        end
+
+      {:error, _reason} = error ->
+        error
     end
   end
 
@@ -70,7 +85,7 @@ defmodule Courier.Ingestion do
   end
 
   @doc """
-  Returns the event with `id` and its deliveries (oldest first), or
+  Returns the event with `id` and its deliveries (by endpoint creation), or
   `{:error, :not_found}` for unknown or malformed ids.
   """
   @spec get_event(term()) :: {:ok, Event.t()} | {:error, :not_found}
@@ -98,13 +113,17 @@ defmodule Courier.Ingestion do
 
   defp preload_deliveries(event) do
     Repo.preload(event,
-      deliveries: from(d in Delivery, order_by: [asc: d.inserted_at, asc: d.id])
+      deliveries:
+        from(d in Delivery,
+          join: e in assoc(d, :endpoint),
+          order_by: [asc: e.inserted_at, asc: e.id, asc: d.inserted_at, asc: d.id]
+        )
     )
   end
 
   @doc false
   # Validates the event and returns the `Ecto.Multi` that stores it with its
-  # deliveries. Public so tests can append a failing step and prove atomicity.
+  # deliveries and their jobs. Public so tests can append a failing step and prove atomicity.
   @spec ingest_multi(map(), String.t() | nil) :: {:ok, Multi.t()} | {:error, error()}
   def ingest_multi(attrs, idempotency_key) when is_map(attrs) do
     event = %Event{
@@ -125,6 +144,7 @@ defmodule Courier.Ingestion do
         Multi.new()
         |> Multi.run(:event, fn repo, _changes -> insert_event(repo, changeset) end)
         |> Multi.run(:deliveries, fn repo, %{event: event} -> insert_deliveries(repo, event) end)
+        |> Oban.insert_all(:jobs, fn %{deliveries: deliveries} -> delivery_jobs(deliveries) end)
 
       {:ok, multi}
     end
@@ -232,7 +252,16 @@ defmodule Courier.Ingestion do
 
     rows = Enum.map(endpoints, &delivery_row(&1, event, now))
     {_count, deliveries} = repo.insert_all(Delivery, rows, returning: true)
-    {:ok, deliveries}
+
+    # `RETURNING` does not promise the insert order; keep the endpoints' order.
+    position = endpoints |> Enum.with_index() |> Map.new(fn {e, i} -> {e.id, i} end)
+    {:ok, Enum.sort_by(deliveries, &Map.fetch!(position, &1.endpoint_id))}
+  end
+
+  defp delivery_jobs(deliveries) do
+    for %Delivery{status: "pending"} = delivery <- deliveries do
+      Worker.new(%{delivery_id: delivery.id}, queue: Queues.name(delivery.endpoint_id))
+    end
   end
 
   defp delivery_row(endpoint, event, now) do
@@ -258,13 +287,14 @@ defmodule Courier.Ingestion do
   end
 
   defp load_original(idempotency_key, request_hash) do
-    event =
-      Event
-      |> Repo.get_by!(idempotency_key: idempotency_key)
-      |> preload_deliveries()
+    Event
+    |> Repo.get_by!(idempotency_key: idempotency_key)
+    |> compare_original(request_hash)
+  end
 
+  defp compare_original(%Event{} = event, request_hash) do
     if event.request_hash == request_hash,
-      do: {:ok, :repeat, event},
+      do: {:ok, :repeat, preload_deliveries(event)},
       else: {:error, :idempotency_key_reused}
   end
 end
