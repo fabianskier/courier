@@ -39,6 +39,27 @@ defmodule CourierWeb.FallbackController do
     })
   end
 
+  def call(conn, {:error, :merchant_disabled}) do
+    respond(conn, :unprocessable_entity, %{
+      code: "merchant_disabled",
+      message: "The merchant is disabled."
+    })
+  end
+
+  def call(conn, {:error, :idempotency_key_reused}) do
+    respond(conn, :unprocessable_entity, %{
+      code: "idempotency_key_reused",
+      message: "This idempotency key was already used with a different request."
+    })
+  end
+
+  def call(conn, {:error, :payload_too_large}) do
+    respond(conn, :request_entity_too_large, %{
+      code: "payload_too_large",
+      message: "The payload must be at most 256 KB when encoded as JSON."
+    })
+  end
+
   def call(conn, {:error, %Ecto.Changeset{} = changeset}) do
     respond(conn, :unprocessable_entity, %{
       code: "invalid",
