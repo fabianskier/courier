@@ -31,6 +31,9 @@ defmodule CourierWeb.EndpointJSON do
       retry_window_seconds: endpoint.retry_window_seconds,
       retry_on_4xx: endpoint.retry_on_4xx,
       max_concurrency: endpoint.max_concurrency,
+      consecutive_failures: endpoint.consecutive_failures,
+      degraded: not is_nil(endpoint.degraded_at),
+      degraded_at: iso8601(endpoint.degraded_at),
       previous_secret_expires_at: iso8601(endpoint.previous_secret_expires_at),
       inserted_at: iso8601(endpoint.inserted_at),
       updated_at: iso8601(endpoint.updated_at)

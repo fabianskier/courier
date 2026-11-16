@@ -51,16 +51,21 @@ defmodule Courier.Endpoints do
   @doc """
   Lists endpoints oldest first, one page at a time (see `Courier.Pagination`).
   With `merchant_id`, only that merchant's endpoints; a malformed id matches none.
+  With `degraded: true`, only degraded endpoints; with `degraded: false`, only
+  the others; `nil` does not filter.
   """
   @spec list_endpoints(%{
           required(:limit) => pos_integer(),
           optional(:cursor) => String.t() | nil,
-          optional(:merchant_id) => String.t() | nil
+          optional(:merchant_id) => String.t() | nil,
+          optional(:degraded) => boolean() | nil
         }) :: {:ok, Pagination.page()} | {:error, :invalid_cursor}
   def list_endpoints(opts) do
+    query = filter_by_merchant(Map.get(opts, :merchant_id), Endpoint)
+
     opts
-    |> Map.get(:merchant_id)
-    |> filter_by_merchant(Endpoint)
+    |> Map.get(:degraded)
+    |> filter_by_degraded(query)
     |> Pagination.paginate(opts)
   end
 
@@ -145,6 +150,10 @@ defmodule Courier.Endpoints do
       :error -> where(query, false)
     end
   end
+
+  defp filter_by_degraded(nil, query), do: query
+  defp filter_by_degraded(true, query), do: where(query, [e], not is_nil(e.degraded_at))
+  defp filter_by_degraded(false, query), do: where(query, [e], is_nil(e.degraded_at))
 
   # The foreign key constraint covers races; this check reports the common
   # case without relying on the database error.

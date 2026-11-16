@@ -5,7 +5,7 @@ Each task must stay within the gate's diff budget (about 600 changed lines, test
 ## 1. Health
 
 - [x] 1.1 Generate the `add_health_to_endpoints` migration, add the fields to `Courier.Endpoints.Endpoint` (not cast), and update `Courier.Delivery.record_attempt/3` to count failures, set and clear `degraded_at` and emit the telemetry events after commit, as in design.md; verify with new tests in `test/courier/delivery/endpoint_health_test.exs` (threshold set to 3 for the test with `Application.put_env` in an `async: false` module, restored on exit; events captured with `:telemetry.attach_many/4`): "Scenario: Failures counted and reset", "Scenario: No attempt, no count", "Scenario: Endpoint becomes degraded", "Scenario: Further failures emit no new event", "Scenario: Endpoint recovers" and, through the worker with a `Req.Test` stub, "Scenario: Degraded endpoint still retried"
-- [ ] 1.2 Render `consecutive_failures`, `degraded` and `degraded_at` in `EndpointJSON`, and add the `degraded` filter to `Endpoints.list_endpoints/1` and `EndpointController.index`, as in design.md; verify with new tests in `test/courier_web/controllers/endpoint_health_api_test.exs`: "Scenario: Health in the response" and "Scenario: List degraded endpoints" (also `degraded=false`, and an invalid value ignored)
+- [x] 1.2 Render `consecutive_failures`, `degraded` and `degraded_at` in `EndpointJSON`, and add the `degraded` filter to `Endpoints.list_endpoints/1` and `EndpointController.index`, as in design.md; verify with new tests in `test/courier_web/controllers/endpoint_health_api_test.exs`: "Scenario: Health in the response" and "Scenario: List degraded endpoints" (also `degraded=false`, and an invalid value ignored)
 
 ## 2. Sweep and isolation
 

@@ -22,10 +22,18 @@ defmodule CourierWeb.EndpointController do
   def index(conn, params) do
     with {:ok, opts} <- Params.pagination(params),
          {:ok, page} <-
-           Endpoints.list_endpoints(Map.put(opts, :merchant_id, params["merchant_id"])) do
+           opts
+           |> Map.put(:merchant_id, params["merchant_id"])
+           |> Map.put(:degraded, degraded_filter(params["degraded"]))
+           |> Endpoints.list_endpoints() do
       render(conn, :index, page: page)
     end
   end
+
+  # Only "true" and "false" filter; any other value is ignored.
+  defp degraded_filter("true"), do: true
+  defp degraded_filter("false"), do: false
+  defp degraded_filter(_), do: nil
 
   def show(conn, %{"id" => id}) do
     with {:ok, endpoint} <- Endpoints.get_endpoint(id) do
