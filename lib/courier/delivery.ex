@@ -1,6 +1,7 @@
 defmodule Courier.Delivery do
   @moduledoc """
-  Reads deliveries and records the outcome of delivery attempts.
+  Reads deliveries, records the outcome of delivery attempts and resends
+  terminal deliveries as new linked deliveries.
 
   A delivery's status only moves forward, from `pending` to `succeeded` or
   `failed`. Every write locks the delivery row (`FOR UPDATE`) inside a short
@@ -12,6 +13,7 @@ defmodule Courier.Delivery do
 
   alias Courier.Audit.Attempt
   alias Courier.Delivery.Delivery
+  alias Courier.Delivery.{Queues, Worker}
   alias Courier.Endpoints.Endpoint
   alias Courier.Repo
 
@@ -114,6 +116,91 @@ defmodule Courier.Delivery do
       end
     end)
     |> stale_as_ok()
+  end
+
+  @doc """
+  Resends a terminal delivery (`succeeded`, `failed` or `skipped`) as a new
+  `pending` delivery for the same event and endpoint, linked to it by
+  `resend_of_id`, with `triggered_by` set to `actor` (a non-empty string,
+  such as `"api_key:ops"`) and a retry window starting now. The new delivery
+  and its job in the endpoint's queue are inserted in one transaction; the
+  resent delivery and its attempts are not changed.
+
+  The resent delivery's row is locked, so concurrent resends of it create at
+  most one new delivery. A `skipped` delivery can be resent: the operator
+  asks for it explicitly, so the endpoint's event filter does not apply.
+
+  Returns `{:ok, new_delivery}`, or `{:error, reason}` where `reason` is:
+
+    * `:not_found` for an unknown or malformed id;
+    * `:delivery_in_progress` when the delivery is `pending`;
+    * `:resend_in_progress` when it already has a `pending` resend;
+    * `:endpoint_disabled` when its endpoint is disabled.
+  """
+  @spec resend(term(), String.t()) ::
+          {:ok, Delivery.t()}
+          | {:error,
+             :not_found
+             | :delivery_in_progress
+             | :resend_in_progress
+             | :endpoint_disabled
+             | Ecto.Changeset.t()}
+  def resend(delivery_id, actor) when is_binary(actor) and actor != "" do
+    Repo.transact(fn ->
+      with {:ok, delivery} <- lock_terminal(delivery_id),
+           :ok <- check_no_pending_resend(delivery),
+           {:ok, endpoint} <- enabled_endpoint(delivery.endpoint_id),
+           {:ok, resend} <- insert_resend(delivery, endpoint, actor),
+           {:ok, _job} <- insert_job(resend) do
+        {:ok, resend}
+      end
+    end)
+  end
+
+  defp lock_terminal(delivery_id) do
+    with {:ok, uuid} <- Ecto.UUID.cast(delivery_id),
+         query = from(d in Delivery, where: d.id == ^uuid, lock: "FOR UPDATE"),
+         %Delivery{} = delivery <- Repo.one(query) do
+      if delivery.status == "pending",
+        do: {:error, :delivery_in_progress},
+        else: {:ok, delivery}
+    else
+      _ -> {:error, :not_found}
+    end
+  end
+
+  # Race-free: the caller holds the lock on `delivery`, which serializes
+  # concurrent resends of it.
+  defp check_no_pending_resend(%Delivery{id: id}) do
+    pending = from d in Delivery, where: d.resend_of_id == ^id and d.status == "pending"
+
+    if Repo.exists?(pending), do: {:error, :resend_in_progress}, else: :ok
+  end
+
+  defp enabled_endpoint(endpoint_id) do
+    case Repo.get(Endpoint, endpoint_id) do
+      %Endpoint{enabled: true} = endpoint -> {:ok, endpoint}
+      _disabled_or_missing -> {:error, :endpoint_disabled}
+    end
+  end
+
+  defp insert_resend(%Delivery{} = delivery, %Endpoint{} = endpoint, actor) do
+    %Delivery{}
+    |> Delivery.create_changeset(%{
+      event_id: delivery.event_id,
+      endpoint_id: delivery.endpoint_id,
+      resend_of_id: delivery.id,
+      status: "pending",
+      triggered_by: actor,
+      window_ends_at: DateTime.add(DateTime.utc_now(), endpoint.retry_window_seconds, :second)
+    })
+    |> Repo.insert()
+  end
+
+  defp insert_job(%Delivery{} = delivery) do
+    %{delivery_id: delivery.id}
+    |> Worker.new(queue: Queues.name(delivery.endpoint_id))
+    |> Oban.insert()
   end
 
   defp lock_pending(delivery_id) do
