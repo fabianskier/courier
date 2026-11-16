@@ -10,7 +10,7 @@ Each task must stay within the gate's diff budget (about 600 changed lines, test
 ## 2. Sweep and isolation
 
 - [x] 2.1 Implement `Courier.Delivery.WindowSweeper` and configure `Oban.Plugins.Cron` and the `maintenance` queue in `config/config.exs`, as in design.md; verify with new tests in `test/courier/delivery/window_sweeper_test.exs` using `perform_job/2`: "Scenario: Delivery of a disabled endpoint expires", "Scenario: Pending delivery inside its window is kept", already terminal deliveries untouched, and a batch limit that re-enqueues the sweeper
-- [ ] 2.2 Add the isolation test `test/courier/delivery/endpoint_isolation_test.exs` (`describe "Requirement: Endpoints are isolated from each other"`, `test "Scenario: Slow endpoint does not delay another"`) as in design.md, with any test-only support module in a new file under `test/support/`; change application code only if the test exposes a real isolation bug, and say so; verify the test passes ten times in a row (`mix test --repeat-until-failure 10` or a loop) so it is not flaky
+- [x] 2.2 Add the isolation test `test/courier/delivery/endpoint_isolation_test.exs` (`describe "Requirement: Endpoints are isolated from each other"`, `test "Scenario: Slow endpoint does not delay another"`) as in design.md, with any test-only support module in a new file under `test/support/`; change application code only if the test exposes a real isolation bug, and say so; verify the test passes ten times in a row (`mix test --repeat-until-failure 10` or a loop) so it is not flaky
 
 ## 3. Docs
 
