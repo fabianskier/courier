@@ -37,7 +37,9 @@ defmodule Courier.Ingestion do
   optional `occurred_at`, with string or atom keys) under `idempotency_key`.
 
   Returns `{:ok, :created, event}` for a new event and `{:ok, :repeat, event}`
-  for a repeat, with deliveries preloaded in both cases.
+  for a repeat, with deliveries preloaded in both cases. A new event emits
+  the telemetry event `[:courier, :event, :ingested]` after commit; a repeat
+  emits nothing.
   """
   @spec ingest(map(), String.t() | nil) ::
           {:ok, :created | :repeat, Event.t()} | {:error, error()}
@@ -46,6 +48,8 @@ defmodule Courier.Ingestion do
       {:ok, multi} ->
         case Repo.transact(multi) do
           {:ok, %{event: event, deliveries: deliveries}} ->
+            # After the transaction, so a rolled-back event emits nothing.
+            Courier.Telemetry.emit_event_ingested(event, deliveries)
             {:ok, :created, %{event | deliveries: deliveries}}
 
           {:error, :event, :duplicate, _changes} ->

@@ -171,7 +171,7 @@ defmodule Courier.Delivery.Worker do
 
     case RetryPolicy.next(now, delay, delivery.window_ends_at) do
       {:retry_at, at} -> {{:retry_at, at}, delay}
-      :window_ended -> {{:failed, now}, nil}
+      :window_ended -> {{:failed, now, :window_ended}, nil}
     end
   end
 

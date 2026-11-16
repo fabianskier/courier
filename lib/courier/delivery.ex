@@ -16,11 +16,15 @@ defmodule Courier.Delivery do
   alias Courier.Delivery.{Queues, Worker}
   alias Courier.Endpoints.Endpoint
   alias Courier.Repo
+  alias Courier.Telemetry
 
   @default_degraded_threshold 20
 
   @type transition ::
-          {:succeeded, DateTime.t()} | {:failed, DateTime.t()} | {:retry_at, DateTime.t()}
+          {:succeeded, DateTime.t()}
+          | {:failed, DateTime.t()}
+          | {:failed, DateTime.t(), Telemetry.failure_reason()}
+          | {:retry_at, DateTime.t()}
 
   @type health_change :: :degraded | :recovered | nil
 
@@ -50,8 +54,13 @@ defmodule Courier.Delivery do
   except `delivery_id` and `number`; the number is `attempt_count + 1`.
 
     * `{:succeeded, now}` / `{:failed, now}` set the status and `completed_at`
-      and clear `next_attempt_at`.
+      and clear `next_attempt_at`. `{:failed, now, reason}` does the same and
+      names why (`:non_retryable`, the default, or `:window_ended`).
     * `{:retry_at, at}` keeps the delivery `pending` and sets `next_attempt_at`.
+
+  After commit, one delivery outcome event is emitted (see
+  `Courier.Telemetry`): `[:courier, :delivery, :succeeded]`,
+  `[:courier, :delivery, :failed]` or `[:courier, :delivery, :retry_scheduled]`.
 
   In the same transaction the endpoint's health is updated (the endpoint row
   is locked after the delivery row): a success resets
@@ -72,6 +81,8 @@ defmodule Courier.Delivery do
           | {:ok, :stale}
           | {:error, :not_found | Ecto.Changeset.t()}
   def record_attempt(delivery_id, attempt_attrs, transition) do
+    {transition, reason} = split_reason(transition)
+
     Repo.transact(fn ->
       with {:ok, delivery} <- lock_pending(delivery_id),
            {:ok, attempt} <- insert_attempt(delivery, attempt_attrs),
@@ -81,7 +92,39 @@ defmodule Courier.Delivery do
       end
     end)
     |> stale_as_ok()
+    |> emit_outcome(transition, reason)
     |> emit_health()
+  end
+
+  defp split_reason({:failed, %DateTime{} = now, reason})
+       when reason in [:non_retryable, :window_ended],
+       do: {{:failed, now}, reason}
+
+  defp split_reason({:failed, %DateTime{}} = transition), do: {transition, :non_retryable}
+  defp split_reason(transition), do: {transition, nil}
+
+  # Runs after the transaction, so a rolled-back or stale result emits nothing.
+  defp emit_outcome({:ok, %{delivery: delivery, attempt: attempt}} = result, transition, reason) do
+    case transition do
+      {:succeeded, _now} ->
+        Telemetry.emit_delivery_succeeded(delivery)
+
+      {:failed, _now} ->
+        Telemetry.emit_delivery_failed(delivery, reason)
+
+      {:retry_at, at} ->
+        Telemetry.emit_delivery_retry_scheduled(delivery, delay_seconds(attempt, at))
+    end
+
+    result
+  end
+
+  defp emit_outcome(result, _transition, _reason), do: result
+
+  # The delay counts from the end of the attempt, rounded to whole seconds.
+  defp delay_seconds(%Attempt{started_at: started_at, duration_ms: duration_ms}, at) do
+    finished_at = DateTime.add(started_at, duration_ms, :millisecond)
+    max(round(DateTime.diff(at, finished_at, :millisecond) / 1000), 0)
   end
 
   @doc """
@@ -104,7 +147,8 @@ defmodule Courier.Delivery do
 
   @doc """
   Marks a pending delivery `failed` without storing an attempt, for when its
-  retry window ended before another attempt could be made.
+  retry window ended before another attempt could be made. After commit it
+  emits `[:courier, :delivery, :failed]` with reason `:window_ended`.
 
   Returns `{:ok, delivery}`, `{:ok, :stale}` when it is no longer `pending`,
   or `{:error, :not_found}`.
@@ -118,7 +162,16 @@ defmodule Courier.Delivery do
       end
     end)
     |> stale_as_ok()
+    |> emit_window_ended()
   end
+
+  # Runs after the transaction; a stale result changed nothing and emits nothing.
+  defp emit_window_ended({:ok, %Delivery{} = delivery} = result) do
+    Telemetry.emit_delivery_failed(delivery, :window_ended)
+    result
+  end
+
+  defp emit_window_ended(result), do: result
 
   @doc """
   Resends a terminal delivery (`succeeded`, `failed` or `skipped`) as a new
