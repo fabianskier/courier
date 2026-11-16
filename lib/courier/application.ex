@@ -12,6 +12,8 @@ defmodule Courier.Application do
       Courier.Vault,
       Courier.Repo,
       {Oban, Application.fetch_env!(:courier, Oban)},
+      # Starts one queue per enabled endpoint; must come after Oban.
+      Courier.Delivery.QueueManager,
       # Webhook delivery: Finch keeps one pool per origin, each at least as
       # large as the largest allowed endpoint max_concurrency (50). The
       # connect timeout lives here because Req does not accept

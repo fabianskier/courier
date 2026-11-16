@@ -17,6 +17,10 @@ config :courier, Courier.Endpoints.URLPolicy,
 # Webhook requests go to Req.Test stubs, never to the network.
 config :courier, Courier.Delivery.Client, plug: {Req.Test, Courier.Delivery.Client}
 
+# Oban runs no queues with testing: :manual; the queue manager talks to a stub
+# that does nothing unless a test registers itself (test/support/test_queue_control.ex).
+config :courier, :queue_control, Courier.Delivery.TestQueueControl
+
 # Configure your database
 #
 # The MIX_TEST_PARTITION environment variable can be used

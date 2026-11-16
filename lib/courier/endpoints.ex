@@ -7,6 +7,7 @@ defmodule Courier.Endpoints do
 
   import Ecto.Query, warn: false
 
+  alias Courier.Delivery.QueueManager
   alias Courier.Endpoints.Endpoint
   alias Courier.Merchants.Merchant
   alias Courier.Pagination
@@ -16,7 +17,10 @@ defmodule Courier.Endpoints do
   # How long the previous secret keeps signing after a rotation.
   @overlap_seconds 24 * 60 * 60
 
-  @doc "Creates an enabled endpoint for an existing merchant; returns it and its secret."
+  @doc """
+  Creates an enabled endpoint for an existing merchant and starts its delivery
+  queue; returns the endpoint and its secret.
+  """
   @spec create_endpoint(map()) :: {:ok, Endpoint.t(), String.t()} | {:error, Ecto.Changeset.t()}
   def create_endpoint(attrs) when is_map(attrs) do
     secret = generate_secret()
@@ -28,6 +32,7 @@ defmodule Courier.Endpoints do
 
     # Ecto logs query parameters before Cloak encrypts them; never log the secret.
     with {:ok, endpoint} <- Repo.insert(changeset, log: false) do
+      :ok = QueueManager.sync(endpoint)
       {:ok, endpoint, secret}
     end
   end
@@ -59,12 +64,16 @@ defmodule Courier.Endpoints do
     |> Pagination.paginate(opts)
   end
 
-  @doc "Updates an endpoint with the same validation as creation."
+  @doc """
+  Updates an endpoint with the same validation as creation, then starts, scales
+  or stops its delivery queue to match (see `Courier.Delivery.QueueManager`).
+  """
   @spec update_endpoint(Endpoint.t(), map()) :: {:ok, Endpoint.t()} | {:error, Ecto.Changeset.t()}
   def update_endpoint(%Endpoint{} = endpoint, attrs) when is_map(attrs) do
-    endpoint
-    |> Endpoint.update_changeset(attrs)
-    |> Repo.update()
+    with {:ok, endpoint} <- endpoint |> Endpoint.update_changeset(attrs) |> Repo.update() do
+      :ok = QueueManager.sync(endpoint)
+      {:ok, endpoint}
+    end
   end
 
   @doc """
