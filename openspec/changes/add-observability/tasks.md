@@ -10,7 +10,7 @@ Each task must stay within the gate's diff budget (about 600 changed lines, test
 
 ## 2. Dashboard
 
-- [ ] 2.1 Add the metrics to `CourierWeb.Telemetry.metrics/0`, `CourierWeb.Plugs.AdminAuth`, the `:admin` pipeline and `/admin/dashboard` route (removing `/dev/dashboard`), and the `:admin_token` config in `config/runtime.exs`, `config/dev.exs` and `config/test.exs`, as in design.md; verify with new tests in `test/courier_web/admin_dashboard_test.exs` ("Scenario: Correct token" following the redirect LiveDashboard answers with, "Scenario: Missing or wrong token", "Scenario: Dashboard disabled" with the token removed from the app env for the test in an `async: false` module and restored on exit, and the token absent from captured logs) and `test/courier_web/telemetry_metrics_test.exs` ("Scenario: Metrics defined")
+- [x] 2.1 Add the metrics to `CourierWeb.Telemetry.metrics/0`, `CourierWeb.Plugs.AdminAuth`, the `:admin` pipeline and `/admin/dashboard` route (removing `/dev/dashboard`), and the `:admin_token` config in `config/runtime.exs`, `config/dev.exs` and `config/test.exs`, as in design.md; verify with new tests in `test/courier_web/admin_dashboard_test.exs` ("Scenario: Correct token" following the redirect LiveDashboard answers with, "Scenario: Missing or wrong token", "Scenario: Dashboard disabled" with the token removed from the app env for the test in an `async: false` module and restored on exit, and the token absent from captured logs) and `test/courier_web/telemetry_metrics_test.exs` ("Scenario: Metrics defined")
 
 ## 3. Docs
 

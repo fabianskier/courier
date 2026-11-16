@@ -75,6 +75,66 @@ defmodule CourierWeb.Telemetry do
           "The time the connection spent waiting before being checked out for the query"
       ),
 
+      # Courier Metrics
+      counter("courier.event.ingested.count",
+        tags: [:type],
+        description: "Events ingested, by type"
+      ),
+      sum("courier.event.ingested.deliveries",
+        description: "Deliveries created by ingested events"
+      ),
+      summary("courier.attempt.stop.duration",
+        unit: {:native, :millisecond},
+        tags: [:outcome, :status_class],
+        description: "How long attempts take, by outcome and status class"
+      ),
+      counter("courier.attempt.stop.duration",
+        tags: [:outcome],
+        description: "Attempts, by outcome"
+      ),
+      summary("courier.attempt.stop.since_created_ms",
+        unit: :millisecond,
+        tags: [:number],
+        keep: &(&1.number == 1),
+        description: "Time from a delivery's creation to its first attempt"
+      ),
+      counter("courier.attempt.exception.duration",
+        description: "Attempts whose request raised"
+      ),
+      counter("courier.delivery.succeeded.attempts",
+        description: "Deliveries that succeeded"
+      ),
+      summary("courier.delivery.succeeded.total_ms",
+        unit: :millisecond,
+        description: "Time from a delivery's creation to its success"
+      ),
+      counter("courier.delivery.failed.attempts",
+        tags: [:reason],
+        description: "Deliveries that failed for good, by reason"
+      ),
+      counter("courier.delivery.retry_scheduled.delay_seconds",
+        description: "Retries scheduled"
+      ),
+      summary("courier.delivery.retry_scheduled.delay_seconds",
+        unit: :second,
+        description: "Delay until the next attempt"
+      ),
+      counter("courier.endpoint.degraded.consecutive_failures",
+        description: "Endpoints marked degraded"
+      ),
+      counter("courier.endpoint.recovered.count",
+        description: "Endpoints that recovered"
+      ),
+      last_value("courier.queue.lag.seconds",
+        unit: :second,
+        tags: [:queue],
+        description: "How long the oldest available job of an endpoint queue has waited"
+      ),
+      last_value("courier.queue.lag.available",
+        tags: [:queue],
+        description: "Available jobs in an endpoint queue"
+      ),
+
       # VM Metrics
       summary("vm.memory.total", unit: {:byte, :kilobyte}),
       summary("vm.total_run_queue_lengths.total"),

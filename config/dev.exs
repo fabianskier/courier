@@ -58,8 +58,10 @@ config :courier, CourierWeb.Endpoint,
 # configured to run both http and https servers on
 # different ports.
 
-# Enable dev routes for dashboard and mailbox
-config :courier, dev_routes: true
+# Fixed, NON-SECRET admin token for development only: the password of
+# /admin/dashboard (any user name). Production reads COURIER_ADMIN_TOKEN in
+# config/runtime.exs.
+config :courier, :admin_token, "courier-dev-admin-token-not-a-secret"
 
 # Do not include metadata nor timestamps in development logs
 config :logger, :default_formatter, format: "[$level] $message\n"

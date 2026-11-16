@@ -7,6 +7,9 @@ config :courier, Oban, testing: :manual
 # Production reads COURIER_ENCRYPTION_KEY in config/runtime.exs.
 config :courier, Courier.Vault, key: "courier-test-key-not-a-secret!!!"
 
+# Fixed, NON-SECRET admin token for tests only.
+config :courier, :admin_token, "courier-test-admin-token-not-a-secret"
+
 # URL policy in tests never touches the network: hosts resolve by convention
 # (see test/support/test_resolver.ex).
 config :courier, Courier.Endpoints.URLPolicy,

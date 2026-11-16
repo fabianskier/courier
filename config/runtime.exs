@@ -23,6 +23,14 @@ end
 config :courier, CourierWeb.Endpoint,
   http: [port: String.to_integer(System.get_env("PORT", "4000"))]
 
+# The admin token is the password of /admin/dashboard (HTTP Basic, any user
+# name). Without it the dashboard answers 404. When unset, the fixed tokens in
+# config/dev.exs and config/test.exs apply; production has no default.
+case System.get_env("COURIER_ADMIN_TOKEN") do
+  token when token in [nil, ""] -> :ok
+  token -> config :courier, :admin_token, token
+end
+
 if config_env() == :dev do
   # Database connection from the environment (set in mise.toml [env]).
   # Falls back to the values in config/dev.exs when unset.

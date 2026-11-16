@@ -1,12 +1,20 @@
 defmodule CourierWeb.Router do
   use CourierWeb, :router
 
+  import Phoenix.LiveDashboard.Router
+
   pipeline :api do
     plug :accepts, ["json"]
   end
 
   pipeline :authenticated do
     plug CourierWeb.Plugs.Authenticate
+  end
+
+  pipeline :admin do
+    plug :fetch_session
+    plug :protect_from_forgery
+    plug CourierWeb.Plugs.AdminAuth
   end
 
   scope "/api", CourierWeb do
@@ -27,21 +35,12 @@ defmodule CourierWeb.Router do
     post "/deliveries/:id/resend", DeliveryController, :resend
   end
 
-  # Enable LiveDashboard in development
-  if Application.compile_env(:courier, :dev_routes) do
-    # If you want to use the LiveDashboard in production, you should put
-    # it behind authentication and allow only admins to access it.
-    # If your application does not have an admins-only section yet,
-    # you can use Plug.BasicAuth to set up some basic authentication
-    # as long as you are also using SSL (which you should anyway).
-    import Phoenix.LiveDashboard.Router
+  # LiveDashboard for operators, in every environment, behind the admin token.
+  scope "/admin" do
+    pipe_through :admin
 
-    scope "/dev" do
-      pipe_through [:fetch_session, :protect_from_forgery]
-
-      live_dashboard "/dashboard",
-        metrics: CourierWeb.Telemetry,
-        ecto_repos: [Courier.Repo]
-    end
+    live_dashboard "/dashboard",
+      metrics: CourierWeb.Telemetry,
+      ecto_repos: [Courier.Repo]
   end
 end
