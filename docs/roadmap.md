@@ -37,6 +37,8 @@ Steps 1 to 8 give a complete backend that can be demoed with `curl`, the demo re
 
 - Step 2, `add-merchants-endpoints`: `Courier.Merchants` and `Courier.Endpoints` with their REST API (`read`/`write` scopes), event-type filters, the URL policy (https, no credentials, public addresses only after DNS resolution, host allowlist), `whsec_` signing secrets encrypted at rest with Cloak (`COURIER_ENCRYPTION_KEY`) and rotation with a 24 h overlap, and keyset cursor pagination. `mix courier.keys.*` no longer print SQL. Documented in `docs/architecture.md` ("Merchants and endpoints").
 
+- Step 3, `add-event-ingestion`: `Courier.Ingestion` with `POST /api/v1/events` (`ingest` scope, required `Idempotency-Key`, `202` for new events, `200` for repeats, `422 idempotency_key_reused` for a key reused with a different body, `422 merchant_disabled`, `413 payload_too_large` above 256 KB), the event and one `pending`/`skipped` delivery per enabled endpoint stored in one transaction with each pending delivery's retry window, and `GET /api/v1/events` (newest first, filters by merchant and type) and `GET /api/v1/events/:id` with the `read` scope. Shared `CourierWeb.LogCapture.capture_debug_log/1` test helper and a working test for the `api-access` scenario "Rejected token not echoed". Documented in `docs/architecture.md` ("Event ingestion").
+
 **Next:**
-1. Propose OpenSpec change `add-event-ingestion` (step 3) and build it with `mix smelt.task`.
-   - Include in it: move `capture_debug_log/1` from `test/courier_web/controllers/endpoint_secret_logging_test.exs` to `test/support/`, and add a new test for the `api-access` scenario "Rejected token not echoed" that uses it. The existing test only raises the process log level, which cannot go below the primary level (`:warning` in test), so it captures nothing and would not catch a regression.
+1. Archive `add-event-ingestion` and check it end to end with `curl`.
+2. Propose OpenSpec change `add-webhook-delivery` (step 4) and build it with `mix smelt.task`.

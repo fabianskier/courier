@@ -355,6 +355,79 @@ curl -s -X POST http://localhost:4000/api/v1/endpoints -H "Authorization: Bearer
 # {"data": {"id": "...", "enabled": true, "retry_window_seconds": 86400, ..., "secret": "whsec_..."}}
 ```
 
+## Event ingestion
+
+`Courier.Ingestion` accepts events from the producer, deduplicates them by idempotency key and stores each one with its deliveries (`Courier.Delivery`) in one transaction.
+
+**Request.** `POST /api/v1/events` needs a key with the `ingest` scope.
+
+| Part | Rule |
+|---|---|
+| `Authorization` header | `Bearer ck_...` with the `ingest` scope |
+| `Idempotency-Key` header | required; 1 to 255 printable ASCII characters (`0x21` to `0x7E`, no spaces) |
+| `type` | dot-separated lowercase segments of letters, digits and `_` (`payment.succeeded`); no wildcards |
+| `merchant_id` | an existing, enabled merchant |
+| `payload` | a JSON object, at most 256 KB (262 144 bytes) when encoded as JSON |
+| `occurred_at` | optional ISO 8601 timestamp; defaults to the time of receipt |
+
+Other body fields are ignored. `Plug.Parsers` also rejects any request body over 1 MB before it reaches the controller.
+
+```sh
+curl -s -X POST http://localhost:4000/api/v1/events -H "Authorization: Bearer $COURIER_INGEST_TOKEN" \
+  -H "content-type: application/json" -H "Idempotency-Key: pay_123-succeeded" \
+  -d '{"type": "payment.succeeded", "merchant_id": "<id>", "payload": {"payment_id": "pay_123", "amount": 1000}}'
+# 202 {"data": {"id": "...", "type": "payment.succeeded", "merchant_id": "<id>", "payload": {...},
+#      "occurred_at": "2026-11-15T10:00:00.123456Z", "received_at": "2026-11-15T10:00:00.123456Z",
+#      "deliveries": [{"id": "...", "endpoint_id": "...", "status": "pending", "window_ends_at": "2026-11-16T10:00:00.123456Z"}]}}
+```
+
+**Responses.**
+
+| Situation | Status | Code |
+|---|---|---|
+| New event stored | `202` | |
+| Repeat of a stored event (see below) | `200` | |
+| Key without the `ingest` scope | `403` | `forbidden` |
+| Missing or malformed `Idempotency-Key`, invalid `type`, non-object `payload`, malformed `occurred_at`, unknown `merchant_id` (field errors in `details`) | `422` | `invalid` |
+| Merchant exists but is disabled | `422` | `merchant_disabled` |
+| Key already used with a different request | `422` | `idempotency_key_reused` |
+| `payload` over 256 KB as JSON | `413` | `payload_too_large` |
+
+Rejected requests store nothing. Validation runs before the idempotency check, so a repeat that is now invalid (for example, its merchant was disabled since) is rejected like a new request.
+
+**Idempotency.** Keys are global (one producer in v1). When a key matches a stored event, courier compares a SHA-256 hash of the request's `type`, `merchant_id`, `payload` and `occurred_at` **as sent**:
+
+- Same hash: the request is a repeat. It answers `200` with the original event and its deliveries and stores nothing new. Key order inside `payload` does not matter.
+- Different hash: `422 idempotency_key_reused`, and the stored event is unchanged.
+
+A repeat must therefore send the same `occurred_at` as the original: if the original omitted it and the retry sends the time the server assigned (or the other way round), the request counts as a different body. Producers should retry with exactly the same request. Concurrent requests with the same key resolve to one event: the insert uses `ON CONFLICT DO NOTHING` on the unique key, the loser waits for the winner to commit and then answers with the winner's event.
+
+**Fan-out.** In the same transaction as the event, courier creates one delivery per **enabled** endpoint of the merchant; disabled endpoints get none, and a merchant without enabled endpoints gets an event with no deliveries (still `202`).
+
+| Delivery status | When | Fields |
+|---|---|---|
+| `pending` | the endpoint's event-type filters match the type (an empty list matches every type) | `window_ends_at` = `received_at` + the endpoint's `retry_window_seconds` |
+| `skipped` | the filters do not match | `window_ends_at` is `null`; `completed_at` = `received_at` |
+| `succeeded`, `failed` | set by delivery (step 4) | |
+
+If storing any delivery fails, the whole transaction rolls back and neither the event nor any delivery exists. Sending pending deliveries is not part of ingestion; step 4 adds their Oban jobs to the same transaction.
+
+**Reading events.** Needs the `read` scope.
+
+- `GET /api/v1/events` lists events **newest first** with the same `limit`/`cursor` pagination as other lists (keyset on `(inserted_at, id)` descending). Filters: `merchant_id` (a malformed id returns an empty page) and `type` (exact match, no wildcards). Items do not include deliveries.
+- `GET /api/v1/events/:id` returns the event with its deliveries (`id`, `endpoint_id`, `status`, `window_ends_at`). An unknown or malformed id returns `404 not_found`.
+
+The idempotency key and request hash are stored but never returned.
+
+```sh
+curl -s "http://localhost:4000/api/v1/events?merchant_id=<id>&type=payment.succeeded&limit=20" \
+  -H "Authorization: Bearer $COURIER_TOKEN"
+# {"data": [{"id": "...", "type": "payment.succeeded", ...}], "next_cursor": null}
+
+curl -s http://localhost:4000/api/v1/events/<event_id> -H "Authorization: Bearer $COURIER_TOKEN"
+# {"data": {"id": "...", ..., "deliveries": [{"id": "...", "endpoint_id": "...", "status": "skipped", "window_ends_at": null}]}}
+```
+
 ## Security notes
 
 - API keys are random tokens stored as SHA-256 hashes; the plaintext is shown once. Scopes: `ingest`, `read`, `write`.
