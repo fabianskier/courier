@@ -776,6 +776,14 @@ mix courier.simulate --merchant <merchant id> --merchant <other merchant id> \
   --count 50 --rate 10 --repeat-share 0.2 --types payment.succeeded,refund.succeeded
 ```
 
+**From the release.** A release has no Mix, so it ships `bin/simulate` (`rel/overlays/bin/simulate`), which takes the same options with the same defaults, validation and messages:
+
+```sh
+bin/simulate --token ck_... --merchant <merchant id> --count 50 --rate 10
+```
+
+The script runs `bin/courier eval 'System.halt(CourierDemo.CLI.simulate(System.argv()))'`: `eval` loads the configuration and starts no application, and `simulate/1` starts only `:req`. Both entry points share `CourierDemo.CLI`: `parse_simulate/2` parses and validates the options (the token defaults to `COURIER_INGEST_TOKEN`) and `summary/1` builds the summary lines. The Mix task prints through `Mix.shell()` and exits with `exit({:shutdown, 1})`; `simulate/1` prints the summary to standard output and returns `0`, or prints the errors and a usage line to standard error and returns `1`, which the script turns into the exit status.
+
 ### Demo seeds
 
 `priv/repo/seeds.exs` calls `CourierDemo.Seeds.run/1` and prints `CourierDemo.Seeds.report/1`. It runs with `mix run priv/repo/seeds.exs`, and as part of `mix ecto.setup` and `mix ecto.reset`. It creates, through the public context functions only (`Courier.Access`, `Courier.Merchants`, `Courier.Endpoints`, so URLs pass the URL policy and each endpoint's queue starts):

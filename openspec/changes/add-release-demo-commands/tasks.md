@@ -4,7 +4,7 @@ Each task must stay within the gate's diff budget (about 600 changed lines, test
 
 ## 1. Simulator from the release
 
-- [ ] 1.1 Add `CourierDemo.CLI` with `parse_simulate/2`, `summary/1` and `simulate/1` as in design.md, make `Mix.Tasks.Courier.Simulate` delegate its parsing, validation and summary to it (same messages and exit behaviour), and add the executable `rel/overlays/bin/simulate`; verify with new tests in `test/courier_demo/cli_simulate_test.exs`: "Scenario: Release run prints the summary", "Scenario: Release run rejects invalid options" and "Scenario: Release run reads the token from the environment", and that `test/mix/tasks/courier_simulate_test.exs` passes unchanged; then document `bin/simulate` in the "Producer simulator" section of `docs/architecture.md`
+- [x] 1.1 Add `CourierDemo.CLI` with `parse_simulate/2`, `summary/1` and `simulate/1` as in design.md, make `Mix.Tasks.Courier.Simulate` delegate its parsing, validation and summary to it (same messages and exit behaviour), and add the executable `rel/overlays/bin/simulate`; verify with new tests in `test/courier_demo/cli_simulate_test.exs`: "Scenario: Release run prints the summary", "Scenario: Release run rejects invalid options" and "Scenario: Release run reads the token from the environment", and that `test/mix/tasks/courier_simulate_test.exs` passes unchanged; then document `bin/simulate` in the "Producer simulator" section of `docs/architecture.md`
 
 ## 2. Seeds from the release
 
