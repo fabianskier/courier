@@ -9,7 +9,7 @@ Each task must stay within the gate's diff budget (about 600 changed lines, test
 
 ## 2. Docs
 
-- [ ] 2.1 Document resend in `docs/architecture.md` (rules, status codes, actor format, links in the read API, a `curl` example) and mark step 5 done in `docs/roadmap.md` with `add-observability` (step 6) as next; verify `mix precommit`, `sh .smelt/checks.sh` and `openspec validate add-manual-resend --strict` pass and every scenario in `specs/` has a test with the same name
+- [x] 2.1 Document resend in `docs/architecture.md` (rules, status codes, actor format, links in the read API, a `curl` example) and mark step 5 done in `docs/roadmap.md` with `add-observability` (step 6) as next; verify `mix precommit`, `sh .smelt/checks.sh` and `openspec validate add-manual-resend --strict` pass and every scenario in `specs/` has a test with the same name
 
 ## Workflow follow-up
 

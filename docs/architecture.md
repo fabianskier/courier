@@ -230,7 +230,7 @@ erDiagram
         timestamp next_attempt_at
         timestamp window_ends_at
         uuid resend_of_id
-        string triggered_by "system | api_key name"
+        string triggered_by "system | api_key:NAME"
         timestamp completed_at
     }
     ATTEMPT {
@@ -378,7 +378,8 @@ curl -s -X POST http://localhost:4000/api/v1/events -H "Authorization: Bearer $C
   -d '{"type": "payment.succeeded", "merchant_id": "<id>", "payload": {"payment_id": "pay_123", "amount": 1000}}'
 # 202 {"data": {"id": "...", "type": "payment.succeeded", "merchant_id": "<id>", "payload": {...},
 #      "occurred_at": "2026-11-15T10:00:00.123456Z", "received_at": "2026-11-15T10:00:00.123456Z",
-#      "deliveries": [{"id": "...", "endpoint_id": "...", "status": "pending", "window_ends_at": "2026-11-16T10:00:00.123456Z"}]}}
+#      "deliveries": [{"id": "...", "endpoint_id": "...", "status": "pending", "window_ends_at": "2026-11-16T10:00:00.123456Z",
+#                      "resend_of_id": null}]}}
 ```
 
 **Responses.**
@@ -415,7 +416,7 @@ The same transaction also inserts one Oban job per pending delivery, in the endp
 **Reading events.** Needs the `read` scope.
 
 - `GET /api/v1/events` lists events **newest first** with the same `limit`/`cursor` pagination as other lists (keyset on `(inserted_at, id)` descending). Filters: `merchant_id` (a malformed id returns an empty page) and `type` (exact match, no wildcards). Items do not include deliveries.
-- `GET /api/v1/events/:id` returns the event with its deliveries (`id`, `endpoint_id`, `status`, `window_ends_at`). An unknown or malformed id returns `404 not_found`.
+- `GET /api/v1/events/:id` returns the event with its deliveries (`id`, `endpoint_id`, `status`, `window_ends_at`, `resend_of_id`), resends included (see "Manual resend"). An unknown or malformed id returns `404 not_found`.
 
 The idempotency key and request hash are stored but never returned.
 
@@ -425,7 +426,7 @@ curl -s "http://localhost:4000/api/v1/events?merchant_id=<id>&type=payment.succe
 # {"data": [{"id": "...", "type": "payment.succeeded", ...}], "next_cursor": null}
 
 curl -s http://localhost:4000/api/v1/events/<event_id> -H "Authorization: Bearer $COURIER_TOKEN"
-# {"data": {"id": "...", ..., "deliveries": [{"id": "...", "endpoint_id": "...", "status": "skipped", "window_ends_at": null}]}}
+# {"data": {"id": "...", ..., "deliveries": [{"id": "...", "endpoint_id": "...", "status": "skipped", "window_ends_at": null, "resend_of_id": null}]}}
 ```
 
 ## Webhook delivery
@@ -492,12 +493,13 @@ A delivery's status only moves forward, from `pending` to `succeeded` or `failed
 
 **Window sweeper** (`Courier.Delivery.WindowSweeper`). A delivery normally reaches a terminal state in its own job, but the job of a disabled endpoint never runs (its queue is stopped), and a job can be lost. `Oban.Plugins.Cron` therefore runs the sweeper every 5 minutes (`*/5 * * * *`) in `maintenance`, the only static Oban queue (limit 1). Each run takes up to 500 `pending` deliveries with `window_ends_at <= now`, oldest first, cancels their delivery jobs (`Oban.cancel_all_jobs/1`, matched by the `delivery_id` job argument) and marks each one `failed` with `completed_at` set and **no attempt** (`Courier.Delivery.fail_without_attempt/2`). Jobs are cancelled first, so a run that crashes in between leaves the deliveries `pending` for the next run. A full batch makes the sweeper insert itself again to continue at once. Pending deliveries inside their window and terminal deliveries are never touched. A delivery failed by the sweeper stays failed even if its endpoint is enabled again later; a resend is the way to deliver it.
 
-**Reading a delivery.** `GET /api/v1/deliveries/:id` needs the `read` scope and returns the delivery with its attempts in order. Request headers are never returned. An unknown or malformed id returns `404 not_found`.
+**Reading a delivery.** `GET /api/v1/deliveries/:id` needs the `read` scope and returns the delivery with its resend links (`resend_of_id`, `triggered_by` and `resends`, see "Manual resend") and its attempts in order. Request headers are never returned. An unknown or malformed id returns `404 not_found`.
 
 ```sh
 curl -s http://localhost:4000/api/v1/deliveries/<delivery_id> -H "Authorization: Bearer $COURIER_TOKEN"
 # {"data": {"id": "...", "event_id": "...", "endpoint_id": "...", "status": "succeeded", "attempt_count": 2,
 #   "next_attempt_at": null, "window_ends_at": "2026-11-16T10:00:00.123456Z", "completed_at": "2026-11-15T10:00:12.401234Z",
+#   "resend_of_id": null, "triggered_by": "system", "resends": [],
 #   "attempts": [
 #     {"number": 1, "started_at": "2026-11-15T10:00:00.200000Z", "duration_ms": 87, "url": "https://hooks.example.com/courier",
 #      "response_status": 503, "response_body": "unavailable", "error": null},
@@ -555,6 +557,68 @@ curl -s "http://localhost:4000/api/v1/endpoints?degraded=true" -H "Authorization
 ```
 
 **Isolation guarantee.** An endpoint that is slow on every request does not delay the first attempt of another endpoint's delivery, because each endpoint's jobs run in its own Oban queue with its own limit (see "Queues per endpoint") and the HTTP pool is per origin. `test/courier/delivery/endpoint_isolation_test.exs` proves it with real Oban queues and real HTTP servers on loopback: one endpoint takes 3 s to answer and has 6 jobs for a limit of 2; a delivery then created for another endpoint succeeds in under 2 s, while the slow endpoint still has 2 jobs executing, 4 waiting in its own queue and none finished. This is the test the queue ADR asks for. The guarantee is per node, like the queue limits.
+
+## Manual resend
+
+When a merchant fixes a broken endpoint, or asks for an event again, an operator sends a delivery once more without touching history (FR-21 to FR-23). `Courier.Delivery.resend/2` never changes the resent delivery: it creates a **new** delivery linked to it.
+
+**Request.** `POST /api/v1/deliveries/:id/resend` needs a key with the `write` scope and takes no body. It answers `202` with the new delivery, in the same shape as `GET /api/v1/deliveries/:id` (no attempts and no resends yet).
+
+**What a resend creates.** In one transaction, so either all of it exists or none:
+
+- a new `pending` delivery for the same event and endpoint, with `resend_of_id` set to the resent delivery, `triggered_by` set to the actor and `window_ends_at` = now + the endpoint's `retry_window_seconds` (a fresh retry window);
+- its delivery job in the endpoint's queue (`endpoint:<endpoint id>`).
+
+From there it is a delivery like any other: same worker, signature, retries, attempts and effect on endpoint health. Its requests carry `webhook-id` equal to the **event id**, as the original did, so receivers that deduplicate by it keep working, and `courier-delivery-id` equal to the new delivery's id. The resent delivery keeps its status, `completed_at`, attempt count and attempts.
+
+**Rules.** The checks run in the order of the table, and a rejected request creates nothing.
+
+| Situation | Status | Code |
+|---|---|---|
+| Key without the `write` scope | `403` | `forbidden` |
+| Unknown or malformed delivery id | `404` | `not_found` |
+| Delivery is `pending` | `409` | `delivery_in_progress` |
+| Delivery already has a `pending` resend | `409` | `resend_in_progress` |
+| The delivery's endpoint is disabled | `422` | `endpoint_disabled` |
+| Otherwise: the delivery is `succeeded`, `failed` or `skipped` | `202` | |
+
+- A `skipped` delivery can be resent: the operator asks for it explicitly, so the endpoint's event-type filter does not apply.
+- A resend can itself be resent once it is terminal; the new delivery's `resend_of_id` is that resend, not the first original.
+- `resend_in_progress` only looks at the delivery's **direct** resends, and only while one is `pending`: after it succeeds or fails, the delivery can be resent again. This is what makes a double click send once.
+- The transaction locks the resent delivery's row (`SELECT ... FOR UPDATE`) before checking, so concurrent resends of one delivery serialize and create at most one new delivery; the others get `409 resend_in_progress`.
+- There is no bulk resend, no resend to a different endpoint and no payload editing.
+
+**Actor.** `triggered_by` records who caused a delivery: `system` for deliveries created by ingestion, and `api_key:<key name>` for a resend through the API (for example `api_key:dashboard`). The prefix keeps a key that happens to be named `system` distinct. Each accepted resend is also logged at `info` as `resend delivery=<id> new_delivery=<id> actor=<actor>`, without payloads or secrets.
+
+**Links in the read API.** Both directions are visible, one level at a time:
+
+| Response | Field | Meaning |
+|---|---|---|
+| `GET /api/v1/deliveries/:id` | `resend_of_id` | the delivery this one resends, or `null` for an original |
+| | `triggered_by` | the actor, as above |
+| | `resends` | its direct resends, oldest first: `id`, `status`, `triggered_by`, `inserted_at` |
+| `GET /api/v1/events/:id`, ingestion responses | `deliveries[].resend_of_id` | the same, for each of the event's deliveries (originals and resends) |
+
+A chain (a resend of a resend) is followed link by link: each delivery shows only its own `resend_of_id` and its direct resends.
+
+```sh
+curl -s -X POST http://localhost:4000/api/v1/deliveries/<delivery_id>/resend -H "Authorization: Bearer $COURIER_TOKEN"
+# 202 {"data": {"id": "<new_id>", "event_id": "...", "endpoint_id": "...", "status": "pending", "attempt_count": 0,
+#   "next_attempt_at": null, "window_ends_at": "2026-11-17T09:30:00.123456Z", "completed_at": null,
+#   "resend_of_id": "<delivery_id>", "triggered_by": "api_key:dashboard", "resends": [], "attempts": []}}
+
+# again, while the first resend is still pending
+curl -s -X POST http://localhost:4000/api/v1/deliveries/<delivery_id>/resend -H "Authorization: Bearer $COURIER_TOKEN"
+# 409 {"error": {"code": "resend_in_progress", "message": "The delivery already has a pending resend."}}
+
+curl -s http://localhost:4000/api/v1/deliveries/<delivery_id> -H "Authorization: Bearer $COURIER_TOKEN"
+# {"data": {"id": "<delivery_id>", "status": "failed", ..., "resend_of_id": null, "triggered_by": "system",
+#   "resends": [{"id": "<new_id>", "status": "pending", "triggered_by": "api_key:dashboard",
+#                "inserted_at": "2026-11-16T09:30:00.123456Z"}],
+#   "attempts": [...]}}
+```
+
+The dashboard action (step 10) and the MCP tool `resend_delivery` (step 8) will call the same function with their own actor.
 
 ## Security notes
 
