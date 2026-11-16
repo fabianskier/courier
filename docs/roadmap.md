@@ -40,5 +40,5 @@ Steps 1 to 8 give a complete backend that can be demoed with `curl`, the demo re
 - Step 3, `add-event-ingestion`: `Courier.Ingestion` with `POST /api/v1/events` (`ingest` scope, required `Idempotency-Key`, `202` for new events, `200` for repeats, `422 idempotency_key_reused` for a key reused with a different body, `422 merchant_disabled`, `413 payload_too_large` above 256 KB), the event and one `pending`/`skipped` delivery per enabled endpoint stored in one transaction with each pending delivery's retry window, and `GET /api/v1/events` (newest first, filters by merchant and type) and `GET /api/v1/events/:id` with the `read` scope. Shared `CourierWeb.LogCapture.capture_debug_log/1` test helper and a working test for the `api-access` scenario "Rejected token not echoed". Documented in `docs/architecture.md` ("Event ingestion").
 
 **Next:**
-1. Archive `add-event-ingestion` and check it end to end with `curl`.
-2. Propose OpenSpec change `add-webhook-delivery` (step 4) and build it with `mix smelt.task`.
+1. Propose OpenSpec change `add-webhook-delivery` (step 4) and build it with `mix smelt.task`.
+   - Include in it: a stable order for an event's deliveries in API responses (today a new event lists them by endpoint creation and a read lists them by delivery id), and decide whether a repeat for a merchant disabled after the original should return the original event instead of `merchant_disabled`.
