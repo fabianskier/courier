@@ -10,29 +10,85 @@ defmodule Courier.Telemetry do
   | Event | Measurements | Metadata |
   |---|---|---|
   | `[:courier, :event, :ingested]` | `deliveries`, `pending` | `merchant_id`, `type` |
+  | `[:courier, :attempt, :start]` | `system_time`, `monotonic_time` | `delivery_id`, `endpoint_id`, `number` |
+  | `[:courier, :attempt, :stop]` | `duration`, `since_created_ms` | the start metadata plus `outcome`, `status`, `status_class` |
+  | `[:courier, :attempt, :exception]` | `duration` | the start metadata plus `kind`, `reason`, `stacktrace` |
   | `[:courier, :delivery, :succeeded]` | `attempts`, `total_ms` | `delivery_id`, `endpoint_id` |
   | `[:courier, :delivery, :failed]` | `attempts`, `total_ms` | `delivery_id`, `endpoint_id`, `reason` |
   | `[:courier, :delivery, :retry_scheduled]` | `delay_seconds` | `delivery_id`, `endpoint_id`, `attempt` |
 
   `total_ms` is the time from the delivery's `inserted_at` to its
-  `completed_at`.
+  `completed_at`. `since_created_ms` is the time from `inserted_at` to the
+  start of the attempt; for attempt 1 it is the time to first attempt.
+  Attempt durations are in native time units.
   """
 
   alias Courier.Delivery.Delivery
   alias Courier.Ingestion.Event
 
+  @attempt [:courier, :attempt]
   @event_ingested [:courier, :event, :ingested]
   @delivery_succeeded [:courier, :delivery, :succeeded]
   @delivery_failed [:courier, :delivery, :failed]
   @delivery_retry_scheduled [:courier, :delivery, :retry_scheduled]
 
   @type failure_reason :: :non_retryable | :window_ended
+  @type attempt_outcome :: :success | :retry | :give_up
+  @type attempt_result :: {:ok, %{status: integer()}} | {:error, term()}
 
   @doc "The telemetry events emitted through this module."
   @spec events() :: [[atom()]]
   def events do
     [@event_ingested, @delivery_succeeded, @delivery_failed, @delivery_retry_scheduled]
   end
+
+  @doc """
+  The attempt events, emitted by `span_attempt/3`. They are listed apart from
+  `events/0`, which holds the events emitted once per committed change.
+  """
+  @spec attempt_events() :: [[atom()]]
+  def attempt_events do
+    [@attempt ++ [:start], @attempt ++ [:stop], @attempt ++ [:exception]]
+  end
+
+  @doc """
+  Runs `fun`, which sends the request of `delivery`'s next attempt, inside a
+  `[:courier, :attempt]` span that started at `started_at`.
+
+  `fun` returns `{result, outcome}`: the client's result and how the retry
+  policy classified it. Only the status of `result` reaches the metadata.
+  Returns what `fun` returned.
+  """
+  @spec span_attempt(Delivery.t(), DateTime.t(), (-> {attempt_result(), attempt_outcome()})) ::
+          {attempt_result(), attempt_outcome()}
+  def span_attempt(%Delivery{} = delivery, %DateTime{} = started_at, fun)
+      when is_function(fun, 0) do
+    start_metadata = Map.put(ids(delivery), :number, delivery.attempt_count + 1)
+
+    extra_measurements = %{
+      since_created_ms: DateTime.diff(started_at, delivery.inserted_at, :millisecond)
+    }
+
+    :telemetry.span(@attempt, start_metadata, fn ->
+      {result, outcome} = fun.()
+      status = status(result)
+
+      stop_metadata =
+        Map.merge(start_metadata, %{
+          outcome: outcome,
+          status: status,
+          status_class: status_class(status)
+        })
+
+      {{result, outcome}, extra_measurements, stop_metadata}
+    end)
+  end
+
+  defp status({:ok, %{status: status}}) when is_integer(status), do: status
+  defp status(_error), do: nil
+
+  defp status_class(status) when is_integer(status), do: "#{div(status, 100)}xx"
+  defp status_class(nil), do: "error"
 
   @doc """
   Emits `[:courier, :event, :ingested]` for a new `event` stored with

@@ -92,7 +92,12 @@ defmodule Courier.Delivery.Worker do
         )
 
     started = System.monotonic_time()
-    result = Client.post(endpoint.url, body, headers)
+
+    {result, outcome} =
+      Courier.Telemetry.span_attempt(delivery, now, fn ->
+        result = Client.post(endpoint.url, body, headers)
+        {result, RetryPolicy.classify(result, endpoint.retry_on_4xx)}
+      end)
 
     duration_ms =
       System.convert_time_unit(System.monotonic_time() - started, :native, :millisecond)
@@ -110,7 +115,6 @@ defmodule Courier.Delivery.Worker do
         result_attrs(result)
       )
 
-    outcome = RetryPolicy.classify(result, endpoint.retry_on_4xx)
     record(delivery, attrs, outcome, retry_after(result, finished_at), finished_at)
   end
 
