@@ -33,6 +33,9 @@ defmodule Courier.Endpoints.Endpoint do
     field :secret, Courier.Encrypted.Binary, redact: true
     field :previous_secret, Courier.Encrypted.Binary, redact: true
     field :previous_secret_expires_at, :utc_datetime_usec
+    # Health, updated by `Courier.Delivery.record_attempt/3`; never cast.
+    field :consecutive_failures, :integer, default: 0
+    field :degraded_at, :utc_datetime_usec
 
     timestamps()
   end

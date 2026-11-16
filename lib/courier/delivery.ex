@@ -12,10 +12,15 @@ defmodule Courier.Delivery do
 
   alias Courier.Audit.Attempt
   alias Courier.Delivery.Delivery
+  alias Courier.Endpoints.Endpoint
   alias Courier.Repo
+
+  @default_degraded_threshold 20
 
   @type transition ::
           {:succeeded, DateTime.t()} | {:failed, DateTime.t()} | {:retry_at, DateTime.t()}
+
+  @type health_change :: :degraded | :recovered | nil
 
   @doc """
   Returns `{:ok, delivery}` with its attempts preloaded in `number` order, or
@@ -44,23 +49,53 @@ defmodule Courier.Delivery do
       and clear `next_attempt_at`.
     * `{:retry_at, at}` keeps the delivery `pending` and sets `next_attempt_at`.
 
-  Returns `{:ok, %{delivery: delivery, attempt: attempt}}`, `{:ok, :stale}`
+  In the same transaction the endpoint's health is updated (the endpoint row
+  is locked after the delivery row): a success resets
+  `consecutive_failures` and clears `degraded_at`; a failure (`:failed` or
+  `:retry_at`) adds one and sets `degraded_at` when the count reaches the
+  threshold (`config :courier, :degraded_threshold`, default
+  #{@default_degraded_threshold}). After commit, the telemetry event
+  `[:courier, :endpoint, :degraded]` or `[:courier, :endpoint, :recovered]`
+  is emitted for the health change.
+
+  Returns `{:ok, %{delivery: delivery, attempt: attempt, health: health}}`
+  where `health` is `:degraded`, `:recovered` or `nil`, `{:ok, :stale}`
   when the delivery is not `pending` (nothing is stored), or
   `{:error, :not_found}` / `{:error, changeset}`.
   """
   @spec record_attempt(Ecto.UUID.t(), map(), transition()) ::
-          {:ok, %{delivery: Delivery.t(), attempt: Attempt.t()}}
+          {:ok, %{delivery: Delivery.t(), attempt: Attempt.t(), health: health_change()}}
           | {:ok, :stale}
           | {:error, :not_found | Ecto.Changeset.t()}
   def record_attempt(delivery_id, attempt_attrs, transition) do
     Repo.transact(fn ->
       with {:ok, delivery} <- lock_pending(delivery_id),
            {:ok, attempt} <- insert_attempt(delivery, attempt_attrs),
-           {:ok, delivery} <- apply_transition(delivery, transition, attempt.number) do
-        {:ok, %{delivery: delivery, attempt: attempt}}
+           {:ok, delivery} <- apply_transition(delivery, transition, attempt.number),
+           {:ok, endpoint, health} <- update_health(delivery.endpoint_id, transition) do
+        {:ok, %{delivery: delivery, attempt: attempt, health: health, endpoint: endpoint}}
       end
     end)
     |> stale_as_ok()
+    |> emit_health()
+  end
+
+  @doc """
+  Returns the number of consecutive failed attempts at which an endpoint is
+  marked degraded (`config :courier, :degraded_threshold`, a positive
+  integer, default #{@default_degraded_threshold}).
+  """
+  @spec degraded_threshold() :: pos_integer()
+  def degraded_threshold do
+    case Application.get_env(:courier, :degraded_threshold, @default_degraded_threshold) do
+      threshold when is_integer(threshold) and threshold > 0 ->
+        threshold
+
+      other ->
+        raise ArgumentError,
+              "config :courier, :degraded_threshold must be a positive integer, got: " <>
+                inspect(other)
+    end
   end
 
   @doc """
@@ -113,6 +148,59 @@ defmodule Courier.Delivery do
   end
 
   defp transition_changes({:retry_at, %DateTime{} = at}), do: [next_attempt_at: at]
+
+  defp update_health(endpoint_id, transition) do
+    endpoint = Repo.one!(from e in Endpoint, where: e.id == ^endpoint_id, lock: "FOR UPDATE")
+    {changes, health} = health_changes(endpoint, transition)
+
+    with {:ok, endpoint} <- endpoint |> Ecto.Changeset.change(changes) |> Repo.update() do
+      {:ok, endpoint, health}
+    end
+  end
+
+  defp health_changes(%Endpoint{degraded_at: degraded_at}, {:succeeded, _now}) do
+    health = if degraded_at, do: :recovered
+    {[consecutive_failures: 0, degraded_at: nil], health}
+  end
+
+  defp health_changes(%Endpoint{} = endpoint, {status, %DateTime{} = now})
+       when status in [:failed, :retry_at] do
+    count = endpoint.consecutive_failures + 1
+
+    if is_nil(endpoint.degraded_at) and count >= degraded_threshold() do
+      # `{:retry_at, at}` carries the next attempt time, not the current one.
+      {[consecutive_failures: count, degraded_at: degraded_time(status, now)], :degraded}
+    else
+      {[consecutive_failures: count], nil}
+    end
+  end
+
+  defp degraded_time(:failed, now), do: now
+  defp degraded_time(:retry_at, _at), do: DateTime.utc_now()
+
+  # Runs after the transaction, so a rolled-back change emits nothing.
+  defp emit_health({:ok, %{endpoint: endpoint, health: health} = recorded}) do
+    metadata = %{endpoint_id: endpoint.id, merchant_id: endpoint.merchant_id}
+
+    case health do
+      :degraded ->
+        :telemetry.execute(
+          [:courier, :endpoint, :degraded],
+          %{consecutive_failures: endpoint.consecutive_failures},
+          metadata
+        )
+
+      :recovered ->
+        :telemetry.execute([:courier, :endpoint, :recovered], %{}, metadata)
+
+      nil ->
+        :ok
+    end
+
+    {:ok, Map.delete(recorded, :endpoint)}
+  end
+
+  defp emit_health(result), do: result
 
   defp stale_as_ok({:error, :stale}), do: {:ok, :stale}
   defp stale_as_ok(result), do: result
