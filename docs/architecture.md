@@ -538,7 +538,7 @@ It is read on each failed attempt (`Courier.Delivery.degraded_threshold/0`) and 
 | `[:courier, :endpoint, :degraded]` | `%{consecutive_failures: n}` | `%{endpoint_id: id, merchant_id: id}` |
 | `[:courier, :endpoint, :recovered]` | `%{}` | `%{endpoint_id: id, merchant_id: id}` |
 
-Metrics and dashboards for these events come with `add-observability` (step 6).
+Their metrics are on the admin dashboard (see "Observability").
 
 **API.** Every endpoint response includes its health, and the list can be filtered by it:
 
@@ -620,6 +620,70 @@ curl -s http://localhost:4000/api/v1/deliveries/<delivery_id> -H "Authorization:
 
 The dashboard action (step 10) and the MCP tool `resend_delivery` (step 8) will call the same function with their own actor.
 
+## Observability
+
+Operators see what courier is doing without reading the database (FR-33, FR-34): courier emits telemetry events, `CourierWeb.Telemetry` turns them into metrics, and Phoenix LiveDashboard shows them to an admin.
+
+**Events.** All are under `[:courier, ...]`, and their names live in `Courier.Telemetry`. Events about a change are emitted after the transaction commits and once per change, so a rolled-back change, a repeated event or a stale result emits nothing. Measurements and metadata hold counts, durations and ids only: never payloads, response bodies, headers or secrets.
+
+| Event | Measurements | Metadata | Emitted by |
+|---|---|---|---|
+| `[:courier, :event, :ingested]` | `deliveries`, `pending` | `merchant_id`, `type` | `Courier.Ingestion`, new events only |
+| `[:courier, :attempt, :start]` | `system_time`, `monotonic_time` | `delivery_id`, `endpoint_id`, `number` | the worker, before the request |
+| `[:courier, :attempt, :stop]` | `duration` (native units), `since_created_ms` | the start metadata plus `outcome` (`success`, `retry`, `give_up`), `status` (integer or `nil`), `status_class` (`2xx`… or `error`) | the worker, after the request |
+| `[:courier, :attempt, :exception]` | `duration` | the start metadata plus `kind`, `reason`, `stacktrace` | the worker, if the request raises |
+| `[:courier, :delivery, :succeeded]` | `attempts`, `total_ms` | `delivery_id`, `endpoint_id` | `Courier.Delivery.record_attempt/3` |
+| `[:courier, :delivery, :failed]` | `attempts`, `total_ms` | the above plus `reason` (`non_retryable`, `window_ended`) | `record_attempt/3`, `fail_without_attempt/2` |
+| `[:courier, :delivery, :retry_scheduled]` | `delay_seconds` | `delivery_id`, `endpoint_id`, `attempt` | `record_attempt/3` |
+| `[:courier, :endpoint, :degraded]`, `[:courier, :endpoint, :recovered]` | see "Endpoint health" | `endpoint_id`, `merchant_id` | `record_attempt/3` |
+| `[:courier, :queue, :lag]` | `seconds`, `available` | `queue` | `Courier.Delivery.QueueLag`, every 10 s |
+
+`since_created_ms` is the time from the delivery's creation to the start of the attempt; for attempt 1 it is the time to first attempt (the NFR target). `total_ms` is the time from creation to `completed_at`. The attempt events come from one `:telemetry.span/3`, so `start` and `stop` (or `exception`) always pair up.
+
+**Queue lag.** `Courier.Delivery.QueueLag.measure/0` is a periodic measurement of `CourierWeb.Telemetry`'s poller (every 10 s). One query groups the jobs in state `available` of the `endpoint:<id>` queues and emits one event per queue with jobs: how long the oldest has been runnable (`seconds`) and how many are waiting (`available`). Empty queues and other queues (such as `maintenance`) emit nothing. A job's `scheduled_at` is when it became runnable (its insertion or the end of a snooze), so the lag is time spent waiting for a free slot, not backoff. A failing query is logged and the next tick tries again.
+
+**Metrics** (`CourierWeb.Telemetry.metrics/0`). Every event has at least one metric, kept in memory by LiveDashboard:
+
+| Metric | Kind | Tags |
+|---|---|---|
+| `courier.event.ingested.count` | counter | `type` |
+| `courier.event.ingested.deliveries` | sum | |
+| `courier.attempt.stop.duration` | summary (ms) | `outcome`, `status_class` |
+| `courier.attempt.stop.duration` | counter (attempts) | `outcome` |
+| `courier.attempt.stop.since_created_ms` | summary (ms), attempt 1 only: time to first attempt | `number` |
+| `courier.attempt.exception.duration` | counter | |
+| `courier.delivery.succeeded.attempts` | counter | |
+| `courier.delivery.succeeded.total_ms` | summary (ms) | |
+| `courier.delivery.failed.attempts` | counter | `reason` |
+| `courier.delivery.retry_scheduled.delay_seconds` | counter and summary (s) | |
+| `courier.endpoint.degraded.consecutive_failures` | counter | |
+| `courier.endpoint.recovered.count` | counter | |
+| `courier.queue.lag.seconds`, `courier.queue.lag.available` | last value | `queue` |
+
+The generated Phoenix, Ecto and VM metrics stay. Exporting metrics to Prometheus or another backend and alerting are not part of v1.
+
+**Admin dashboard.** LiveDashboard is at `/admin/dashboard` in every environment, behind HTTP Basic auth (`CourierWeb.Plugs.AdminAuth`): the password is the admin token and the user name is ignored. The password is compared in constant time.
+
+| Situation | Response |
+|---|---|
+| Correct token as password | the dashboard |
+| No credentials or wrong password | `401` with a `www-authenticate: Basic` challenge |
+| No admin token configured (unset or empty) | `404`, so the route is hidden |
+
+The token is `config :courier, :admin_token`, read from `COURIER_ADMIN_TOKEN` in `config/runtime.exs`. Development and test use fixed, non-secret tokens written in their config files; production has no default, so the dashboard answers `404` until the variable is set.
+
+```sh
+# development: any user name, the fixed dev token as password
+open http://localhost:4000/admin/dashboard   # password: courier-dev-admin-token-not-a-secret
+curl -s -o /dev/null -w "%{http_code}\n" -u admin:courier-dev-admin-token-not-a-secret \
+  http://localhost:4000/admin/dashboard     # 302, to the dashboard's home page
+
+# production: a long random token, served over HTTPS only
+export COURIER_ADMIN_TOKEN="$(openssl rand -base64 32)"
+```
+
+The courier metrics are on the dashboard's "Metrics" page, grouped under `courier`.
+
 ## Security notes
 
 - API keys are random tokens stored as SHA-256 hashes; the plaintext is shown once. Scopes: `ingest`, `read`, `write`.
@@ -630,3 +694,4 @@ The dashboard action (step 10) and the MCP tool `resend_delivery` (step 8) will 
 - Secrets, full signatures and `Authorization` headers are never logged or stored.
 - Any repo call that writes a secret column passes `log: false`: Ecto logs query parameters at `debug` before Cloak encrypts them, so the plaintext would otherwise reach the logs.
 - MCP tool results mark payloads and response bodies as untrusted data; `resend_delivery` needs `write` scope.
+- The admin token (`COURIER_ADMIN_TOKEN`) opens LiveDashboard, which shows system internals: use a long random value and serve it only over HTTPS, because HTTP Basic auth sends it with every request. It is compared in constant time and never logged; without it the dashboard answers `404`. Telemetry metadata carries ids only, so the dashboard never shows payloads or secrets.
