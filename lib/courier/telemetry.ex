@@ -16,6 +16,7 @@ defmodule Courier.Telemetry do
   | `[:courier, :delivery, :succeeded]` | `attempts`, `total_ms` | `delivery_id`, `endpoint_id` |
   | `[:courier, :delivery, :failed]` | `attempts`, `total_ms` | `delivery_id`, `endpoint_id`, `reason` |
   | `[:courier, :delivery, :retry_scheduled]` | `delay_seconds` | `delivery_id`, `endpoint_id`, `attempt` |
+  | `[:courier, :queue, :lag]` | `seconds`, `available` | `queue` |
 
   `total_ms` is the time from the delivery's `inserted_at` to its
   `completed_at`. `since_created_ms` is the time from `inserted_at` to the
@@ -31,6 +32,7 @@ defmodule Courier.Telemetry do
   @delivery_succeeded [:courier, :delivery, :succeeded]
   @delivery_failed [:courier, :delivery, :failed]
   @delivery_retry_scheduled [:courier, :delivery, :retry_scheduled]
+  @queue_lag [:courier, :queue, :lag]
 
   @type failure_reason :: :non_retryable | :window_ended
   @type attempt_outcome :: :success | :retry | :give_up
@@ -136,6 +138,23 @@ defmodule Courier.Telemetry do
       %{delay_seconds: delay_seconds},
       Map.put(ids(delivery), :attempt, delivery.attempt_count)
     )
+  end
+
+  @doc """
+  The queue lag event, emitted by `emit_queue_lag/3`. It is listed apart from
+  `events/0` because it is a periodic measurement, not a committed change.
+  """
+  @spec queue_lag_event() :: [atom()]
+  def queue_lag_event, do: @queue_lag
+
+  @doc """
+  Emits `[:courier, :queue, :lag]` for `queue`: its oldest available job has
+  been runnable for `seconds`, and `available` jobs are waiting.
+  """
+  @spec emit_queue_lag(String.t(), number(), non_neg_integer()) :: :ok
+  def emit_queue_lag(queue, seconds, available)
+      when is_binary(queue) and is_number(seconds) and is_integer(available) do
+    :telemetry.execute(@queue_lag, %{seconds: seconds, available: available}, %{queue: queue})
   end
 
   defp completed(%Delivery{} = delivery) do
