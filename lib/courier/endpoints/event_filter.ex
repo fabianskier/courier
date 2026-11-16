@@ -22,6 +22,16 @@ defmodule Courier.Endpoints.EventFilter do
   def valid_pattern?(pattern) when is_binary(pattern), do: Regex.match?(@pattern, pattern)
   def valid_pattern?(_pattern), do: false
 
+  @type_pattern ~r/\A[a-z0-9_]+(\.[a-z0-9_]+)*\z/
+
+  @doc """
+  Returns true when `type` is a valid event type: an exact pattern, without
+  wildcard, such as `payment.succeeded`.
+  """
+  @spec valid_type?(term()) :: boolean()
+  def valid_type?(type) when is_binary(type), do: Regex.match?(@type_pattern, type)
+  def valid_type?(_type), do: false
+
   @doc """
   Returns true when `type` matches any of `patterns`, or when `patterns` is empty.
   """

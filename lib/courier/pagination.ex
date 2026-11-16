@@ -1,6 +1,7 @@
 defmodule Courier.Pagination do
   @moduledoc """
-  Keyset pagination on `(inserted_at, id)`, oldest first.
+  Keyset pagination on `(inserted_at, id)`, oldest first by default or newest
+  first with `order: :desc`.
 
   The cursor is opaque to callers: URL-safe base64 of
   `"<inserted_at ISO 8601 usec>|<id>"` for the last item of a page. The query's
@@ -19,13 +20,16 @@ defmodule Courier.Pagination do
   """
   @spec paginate(Ecto.Queryable.t(), %{
           required(:limit) => pos_integer(),
-          optional(:cursor) => String.t() | nil
+          optional(:cursor) => String.t() | nil,
+          optional(:order) => :asc | :desc
         }) :: {:ok, page()} | {:error, :invalid_cursor}
   def paginate(query, %{limit: limit} = opts) when is_integer(limit) and limit > 0 do
-    with {:ok, query} <- after_cursor(query, Map.get(opts, :cursor)) do
+    order = Map.get(opts, :order, :asc)
+
+    with {:ok, query} <- after_cursor(query, Map.get(opts, :cursor), order) do
       rows =
         query
-        |> order_by([r], asc: r.inserted_at, asc: r.id)
+        |> order_by([r], [{^order, r.inserted_at}, {^order, r.id}])
         |> limit(^(limit + 1))
         |> Repo.all()
 
@@ -36,24 +40,24 @@ defmodule Courier.Pagination do
     end
   end
 
-  defp after_cursor(query, nil), do: {:ok, query}
+  defp after_cursor(query, nil, _order), do: {:ok, query}
 
-  defp after_cursor(query, cursor) when is_binary(cursor) do
+  defp after_cursor(query, cursor, order) when is_binary(cursor) do
     case decode_cursor(cursor) do
-      {:ok, inserted_at, id} ->
-        {:ok,
-         where(
-           query,
-           [r],
-           r.inserted_at > ^inserted_at or (r.inserted_at == ^inserted_at and r.id > ^id)
-         )}
-
-      :error ->
-        {:error, :invalid_cursor}
+      {:ok, inserted_at, id} -> {:ok, where(query, ^beyond(order, inserted_at, id))}
+      :error -> {:error, :invalid_cursor}
     end
   end
 
-  defp after_cursor(_query, _cursor), do: {:error, :invalid_cursor}
+  defp after_cursor(_query, _cursor, _order), do: {:error, :invalid_cursor}
+
+  defp beyond(:asc, inserted_at, id) do
+    dynamic([r], r.inserted_at > ^inserted_at or (r.inserted_at == ^inserted_at and r.id > ^id))
+  end
+
+  defp beyond(:desc, inserted_at, id) do
+    dynamic([r], r.inserted_at < ^inserted_at or (r.inserted_at == ^inserted_at and r.id < ^id))
+  end
 
   defp encode_cursor(%{inserted_at: inserted_at, id: id}) do
     Base.url_encode64(DateTime.to_iso8601(inserted_at) <> "|" <> id)
