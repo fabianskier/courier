@@ -393,7 +393,7 @@ curl -s -X POST http://localhost:4000/api/v1/events -H "Authorization: Bearer $C
 | Key already used with a different request | `422` | `idempotency_key_reused` |
 | `payload` over 256 KB as JSON | `413` | `payload_too_large` |
 
-Rejected requests store nothing. Validation runs before the idempotency check, so a repeat that is now invalid (for example, its merchant was disabled since) is rejected like a new request.
+Rejected requests store nothing. Validation runs before the idempotency check, so a repeat that is now invalid is rejected like a new request. One exception: when the merchant was disabled after the original was stored, a request with the same key is answered as for an enabled merchant (`200` with the original event for a repeat, `422 idempotency_key_reused` for a different body), so a producer's retry does not see a misleading `merchant_disabled`.
 
 **Idempotency.** Keys are global (one producer in v1). When a key matches a stored event, courier compares a SHA-256 hash of the request's `type`, `merchant_id`, `payload` and `occurred_at` **as sent**:
 
@@ -408,9 +408,9 @@ A repeat must therefore send the same `occurred_at` as the original: if the orig
 |---|---|---|
 | `pending` | the endpoint's event-type filters match the type (an empty list matches every type) | `window_ends_at` = `received_at` + the endpoint's `retry_window_seconds` |
 | `skipped` | the filters do not match | `window_ends_at` is `null`; `completed_at` = `received_at` |
-| `succeeded`, `failed` | set by delivery (step 4) | |
+| `succeeded`, `failed` | set by delivery (see "Webhook delivery") | |
 
-If storing any delivery fails, the whole transaction rolls back and neither the event nor any delivery exists. Sending pending deliveries is not part of ingestion; step 4 adds their Oban jobs to the same transaction.
+The same transaction also inserts one Oban job per pending delivery, in the endpoint's queue. If storing the event, any delivery or any job fails, the whole transaction rolls back and none of them exists. An event's deliveries are always listed in the same order (the ingestion response, a repeat and a read): by endpoint creation, then by delivery creation.
 
 **Reading events.** Needs the `read` scope.
 
@@ -428,12 +428,88 @@ curl -s http://localhost:4000/api/v1/events/<event_id> -H "Authorization: Bearer
 # {"data": {"id": "...", ..., "deliveries": [{"id": "...", "endpoint_id": "...", "status": "skipped", "window_ends_at": null}]}}
 ```
 
+## Webhook delivery
+
+`Courier.Delivery.Worker` sends each pending delivery to its endpoint, retries it until it succeeds, fails for good or its retry window ends, and records every attempt (`Courier.Audit`). The decisions are pure modules tested on their own (`Signer`, `RetryPolicy`); the worker only wires them together with the HTTP client (`Client`) and `Courier.Delivery.record_attempt/3`.
+
+**Request.** Each attempt is a `POST` to the endpoint URL with a JSON body, encoded once per attempt so the signature covers exactly the bytes sent:
+
+```json
+{"id": "<event id>", "type": "payment.succeeded", "timestamp": "2026-11-15T10:00:00.123456Z",
+ "merchant_id": "<merchant id>", "data": {"payment_id": "pay_123", "amount": 1000}}
+```
+
+`timestamp` is the event's `occurred_at` and `data` its payload.
+
+| Header | Value |
+|---|---|
+| `content-type` | `application/json` |
+| `user-agent` | `courier/<version>` |
+| `webhook-id` | the event id: the same for every attempt and every endpoint, so receivers deduplicate by it |
+| `webhook-timestamp` | Unix seconds when the attempt started |
+| `webhook-signature` | `v1,<base64 signature>`, one per signing secret, space-separated |
+| `courier-delivery-id` | the delivery id, for support and the read API |
+
+**Verifying the signature** (Standard Webhooks). For each secret, the signature is `base64(HMAC-SHA256(key, "<webhook-id>.<webhook-timestamp>.<raw body>"))`, where `key` is the base64-decoded part of the secret after `whsec_`. During the 24 h after a rotation the header holds two signatures (new secret first, then the previous one); a receiver accepts the request when any `v1,` signature matches one of the secrets it knows. A receiver should:
+
+1. read the raw body before parsing it as JSON;
+2. reject a `webhook-timestamp` more than a few minutes away from its own clock (replay protection);
+3. compute the signature and compare it in constant time with each `v1,` entry;
+4. deduplicate by `webhook-id`, because delivery is at least once.
+
+The official Standard Webhooks libraries (`standardwebhooks` for JavaScript, Python, Go, Ruby, PHP and others) do all of this. In Elixir:
+
+```elixir
+"whsec_" <> encoded = secret
+expected = :crypto.mac(:hmac, :sha256, Base.decode64!(encoded), "#{id}.#{timestamp}.#{raw_body}") |> Base.encode64()
+
+signature_header
+|> String.split(" ")
+|> Enum.any?(fn "v1," <> sig -> Plug.Crypto.secure_compare(sig, expected); _ -> false end)
+```
+
+**HTTP client** (`Courier.Delivery.Client`). Req with `retry: false` (Oban is the only layer that retries), redirects not followed, a 5 s connect timeout and a 15 s receive timeout. Requests go through the `Courier.Finch` pool, which keeps one pool of 50 connections per origin, as large as the largest allowed `max_concurrency`. The URL policy runs again before every request (see "Merchants and endpoints").
+
+**Outcome of an attempt.**
+
+| Result | Outcome |
+|---|---|
+| `2xx` | delivery `succeeded`, `completed_at` set |
+| network error, timeout, `408`, `429`, `5xx` | retried |
+| another `4xx` | retried if the endpoint has `retry_on_4xx`, else `failed` |
+| `3xx` | `failed` (the `location` is never requested) |
+| host now resolves to a non-public address | attempt with error `url_rejected: <reason>`, no request, `failed` |
+| host does not resolve | attempt with error `dns: unresolvable_host`, retried |
+| endpoint disabled when the job runs | no attempt, job snoozed 60 s |
+
+A delivery's status only moves forward, from `pending` to `succeeded` or `failed`. A result that arrives for a delivery that is no longer `pending` (for example, a job that ran twice) stores nothing and changes nothing.
+
+**Retry timing** (`Courier.Delivery.RetryPolicy`). After attempt `n`, the next one waits `1 + random(0, min(3600, 10 × 2^(n-1)))` seconds: up to 11 s after the first attempt, 21 s after the second, and at most about an hour from the ninth on. On `429` and `503`, a `Retry-After` header (delta seconds or HTTP date) is honoured when it asks for longer, capped at 3600 s. The worker stores the next time in `next_attempt_at` and snoozes the Oban job until then; snoozes do not consume Oban attempts, so `max_attempts: 10` only guards against crashes. When the next attempt would start at or after `window_ends_at` (received time + the endpoint's `retry_window_seconds`), the delivery becomes `failed` (dead letter). A job that runs after the window ended marks its delivery `failed` without sending anything.
+
+**Attempts** (`Courier.Audit.Attempt`, table `attempts`). Every attempt, including a rejected URL, is one row: `number` (1, 2, … per delivery, unique), `started_at`, `duration_ms`, `url`, `request_headers` (every header sent, with `webhook-signature` stored as `[redacted]`), `response_status`, `response_body` (first 4096 bytes, invalid UTF-8 and NUL bytes replaced) and `error`. The attempt and the delivery's new state are written in one transaction that locks the delivery row; the lock is never held during the HTTP request. A database trigger, `attempts_append_only()`, rejects every `UPDATE` and every `DELETE` unless the transaction ran `SET LOCAL courier.retention = on`, which only the retention job will do.
+
+**Queues per endpoint** (`Courier.Delivery.QueueManager`). Each enabled endpoint has its own Oban queue `endpoint:<endpoint id>` with a limit of the endpoint's `max_concurrency`, so a slow endpoint only uses its own share of concurrency. The manager starts after Oban and starts the queues of all enabled endpoints at boot. Creating or enabling an endpoint starts its queue, changing `max_concurrency` scales it, and disabling it stops it; the pending deliveries of a disabled endpoint keep their jobs and resume when it is enabled again (until their windows end). Queue limits are per node, which matches the single node of v1.
+
+**Reading a delivery.** `GET /api/v1/deliveries/:id` needs the `read` scope and returns the delivery with its attempts in order. Request headers are never returned. An unknown or malformed id returns `404 not_found`.
+
+```sh
+curl -s http://localhost:4000/api/v1/deliveries/<delivery_id> -H "Authorization: Bearer $COURIER_TOKEN"
+# {"data": {"id": "...", "event_id": "...", "endpoint_id": "...", "status": "succeeded", "attempt_count": 2,
+#   "next_attempt_at": null, "window_ends_at": "2026-11-16T10:00:00.123456Z", "completed_at": "2026-11-15T10:00:12.401234Z",
+#   "attempts": [
+#     {"number": 1, "started_at": "2026-11-15T10:00:00.200000Z", "duration_ms": 87, "url": "https://hooks.example.com/courier",
+#      "response_status": 503, "response_body": "unavailable", "error": null},
+#     {"number": 2, "started_at": "2026-11-15T10:00:12.300000Z", "duration_ms": 95, "url": "https://hooks.example.com/courier",
+#      "response_status": 200, "response_body": "ok", "error": null}]}}
+```
+
 ## Security notes
 
 - API keys are random tokens stored as SHA-256 hashes; the plaintext is shown once. Scopes: `ingest`, `read`, `write`.
 - Endpoint secrets are encrypted at rest (AES-256-GCM via Cloak) because they must be readable to sign; the encryption key comes from `COURIER_ENCRYPTION_KEY`.
 - `cloak` 1.1.4 and `cloak_ecto` 1.3.0 have open advisories: CVE-2026-95105 (the AES-CTR cipher is unauthenticated) and CVE-2026-94206 (the PBKDF2 field ignores the iteration count). They do not affect courier, which uses only `Cloak.Ciphers.AES.GCM` and `Cloak.Ecto.Binary`. Rule: never use Cloak's AES-CTR cipher or its PBKDF2 fields, and upgrade both packages when fixed versions are released.
 - URL validation runs at creation **and** before every request (after DNS resolution), with a dev/demo-only host allowlist.
+- DNS rebinding is not fully closed in v1: the URL policy resolves the host, then the HTTP client resolves it again to connect, so a host with a very short TTL could answer a public address to the check and a private one to the connection. Accepted for v1; the later hardening is to connect to the address the policy checked, keeping the original host for TLS SNI and the `host` header.
 - Secrets, full signatures and `Authorization` headers are never logged or stored.
 - Any repo call that writes a secret column passes `log: false`: Ecto logs query parameters at `debug` before Cloak encrypts them, so the plaintext would otherwise reach the logs.
 - MCP tool results mark payloads and response bodies as untrusted data; `resend_delivery` needs `write` scope.

@@ -23,7 +23,7 @@ Each task must stay within the gate's diff budget (about 600 changed lines, test
 ## 4. API and docs
 
 - [x] 4.1 Implement `DeliveryController.show`, `DeliveryJSON` and the `GET /api/v1/deliveries/:id` route with the `read` scope, backed by a `Courier.Delivery.get_delivery/1` that preloads attempts, as in design.md; verify with new tests in `test/courier_web/controllers/delivery_read_test.exs`: "Scenario: Delivery with attempts" (no `request_headers` and no signature in the body), "Scenario: Unknown delivery" and a wrong-scope `403`
-- [ ] 4.2 Document delivery in `docs/architecture.md` (new section "Webhook delivery": request body and headers, how a receiver verifies the signature, retry rules and timing, attempts and the trigger, queues per endpoint, the read API with a `curl` example, and the DNS rebinding note in "Security notes"), and mark step 4a done in `docs/roadmap.md` with `add-endpoint-health` (FR-17, FR-36) as the next step; verify `mix precommit`, `sh .smelt/checks.sh` and `openspec validate add-webhook-delivery --strict` pass and every scenario in `specs/` has a test with the same name
+- [x] 4.2 Document delivery in `docs/architecture.md` (new section "Webhook delivery": request body and headers, how a receiver verifies the signature, retry rules and timing, attempts and the trigger, queues per endpoint, the read API with a `curl` example, and the DNS rebinding note in "Security notes"), and mark step 4a done in `docs/roadmap.md` with `add-endpoint-health` (FR-17, FR-36) as the next step; verify `mix precommit`, `sh .smelt/checks.sh` and `openspec validate add-webhook-delivery --strict` pass and every scenario in `specs/` has a test with the same name
 
 ## Workflow follow-up
 
