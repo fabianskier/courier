@@ -13,7 +13,7 @@ Each task must stay within the gate's diff budget (about 600 changed lines, test
 
 ## 3. Demo seeds
 
-- [ ] 3.1 Add `CourierDemo.Seeds.run/1` and call it from `priv/repo/seeds.exs`, with the data set in design.md, secret registration after creation (`req_options` from `config :courier, CourierDemo.Seeds`, `plug: {Req.Test, CourierDemo.Seeds}` in `config/test.exs`) and the printed summary; verify with new tests in `test/courier_demo/seeds_test.exs` using `https://receiver.public.test` as the receiver URL: "Scenario: Data created", "Scenario: Receiver URL from the environment", "Scenario: Secrets registered", "Scenario: Receiver unreachable" (stub answering with a transport error), "Scenario: Output ready to use" and "Scenario: Second run refused"; then document the seeds (the table of merchants and endpoints, `COURIER_DEMO_RECEIVER_URL`, seeding once) in the "Demo tools" section of `docs/architecture.md`
+- [x] 3.1 Add `CourierDemo.Seeds.run/1` and call it from `priv/repo/seeds.exs`, with the data set in design.md, secret registration after creation (`req_options` from `config :courier, CourierDemo.Seeds`, `plug: {Req.Test, CourierDemo.Seeds}` in `config/test.exs`) and the printed summary; verify with new tests in `test/courier_demo/seeds_test.exs` using `https://receiver.public.test` as the receiver URL: "Scenario: Data created", "Scenario: Receiver URL from the environment", "Scenario: Secrets registered", "Scenario: Receiver unreachable" (stub answering with a transport error), "Scenario: Output ready to use" and "Scenario: Second run refused"; then document the seeds (the table of merchants and endpoints, `COURIER_DEMO_RECEIVER_URL`, seeding once) in the "Demo tools" section of `docs/architecture.md`
 
 ## 4. Demo walkthrough
 

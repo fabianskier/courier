@@ -9,3 +9,7 @@
 #
 # We recommend using the bang functions (`insert!`, `update!`
 # and so on) as they will fail if something goes wrong.
+
+# Demo data for the demo receiver (see "Demo tools" in docs/architecture.md).
+# It refuses to run twice on the same database.
+[] |> CourierDemo.Seeds.run() |> CourierDemo.Seeds.report() |> IO.puts()

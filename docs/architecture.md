@@ -776,6 +776,31 @@ mix courier.simulate --merchant <merchant id> --merchant <other merchant id> \
   --count 50 --rate 10 --repeat-share 0.2 --types payment.succeeded,refund.succeeded
 ```
 
+### Demo seeds
+
+`priv/repo/seeds.exs` calls `CourierDemo.Seeds.run/1` and prints `CourierDemo.Seeds.report/1`. It runs with `mix run priv/repo/seeds.exs`, and as part of `mix ecto.setup` and `mix ecto.reset`. It creates, through the public context functions only (`Courier.Access`, `Courier.Merchants`, `Courier.Endpoints`, so URLs pass the URL policy and each endpoint's queue starts):
+
+- an API key named `demo` with the scopes `ingest`, `read` and `write`;
+- three merchants with five enabled endpoints, one per receiver behaviour, at `<receiver URL>/hooks/<endpoint name>/<behaviour>`:
+
+| Merchant | Endpoint name | Behaviour | Settings | What it shows |
+|---|---|---|---|---|
+| Sunrise Bakery | `sunrise-ok` | `ok` | `event_types: ["payment.*"]` | successes, and `skipped` deliveries for other event types |
+| Harbor Outfitters | `harbor-fail` | `fail` | `retry_window_seconds: 300` | retries, then dead letters after 5 minutes |
+| Harbor Outfitters | `harbor-rate-limit` | `rate-limit` | defaults | retries that honour `Retry-After` |
+| Pine Hardware | `pine-bad-request` | `bad-request` | defaults | a `4xx` that is not retried |
+| Pine Hardware | `pine-timeout` | `timeout` | `max_concurrency: 2` | a slow endpoint that does not delay the others |
+
+The endpoint name is the receiver's path segment, the name its secret is registered under, and the endpoint's `description`.
+
+**Receiver URL.** `http://localhost:4001` by default, or the value of `COURIER_DEMO_RECEIVER_URL` when it is set (for example `http://demo-receiver:4001` inside Compose). It is used for the endpoint URLs and for the secret registrations, and it must pass the URL policy of the environment.
+
+**Secret registration.** Right after creating each endpoint, the seeds send its signing secret to the receiver (`PUT <receiver URL>/_secrets/<endpoint name>`, with `Req`, no retries, 2 s timeouts; extra `Req` options come from `config :courier, CourierDemo.Seeds, req_options: [...]`, which tests point at `Req.Test` stubs). When the receiver cannot be reached or rejects a secret, the data is still created and the output warns, by endpoint name, that requests to those endpoints will be answered unchecked. The secrets go to the receiver only: they are never printed, logged or returned by `run/1`. So start the receiver before seeding.
+
+**Output.** The `demo` key's token (shown only here; courier stores its hash), the merchants' ids and names, the endpoints' ids and URLs, and a `mix courier.simulate` command with the token and a `--merchant` option per merchant, which can be run as printed.
+
+**Seeding once.** The `demo` key is created first and its name is unique: when it already exists (also when it was revoked, or when a concurrent run created it first), the seeds create nothing, print that the database is already seeded and exit normally, so `mix ecto.setup` on a seeded database does not fail. To seed again, run `mix ecto.reset`, which drops the database. No transaction wraps the rest, because creating an endpoint starts its Oban queue, which a rollback would not undo; a failure halfway leaves partial demo data, also fixed with `mix ecto.reset`.
+
 ## Security notes
 
 - API keys are random tokens stored as SHA-256 hashes; the plaintext is shown once. Scopes: `ingest`, `read`, `write`.

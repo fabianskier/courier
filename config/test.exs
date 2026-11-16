@@ -23,6 +23,9 @@ config :courier, Courier.Delivery.Client, plug: {Req.Test, Courier.Delivery.Clie
 # The demo simulator's requests go to Req.Test stubs too.
 config :courier, CourierDemo.Simulator, req_options: [plug: {Req.Test, CourierDemo.Simulator}]
 
+# The demo seeds register secrets with a Req.Test stub, never with a real receiver.
+config :courier, CourierDemo.Seeds, req_options: [plug: {Req.Test, CourierDemo.Seeds}]
+
 # Oban runs no queues with testing: :manual; the queue manager talks to a stub
 # that does nothing unless a test registers itself (test/support/test_queue_control.ex).
 config :courier, :queue_control, Courier.Delivery.TestQueueControl
