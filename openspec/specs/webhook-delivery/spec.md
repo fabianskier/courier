@@ -148,3 +148,10 @@ The system SHALL stop reading a response body after its first 4096 bytes, and SH
 #### Scenario: Body that trickles in
 - **WHEN** an endpoint sends its status and one byte of body and then nothing more
 - **THEN** the request ends at the deadline with error `timeout`
+
+### Requirement: Delivery dependencies outlive delivery jobs
+The system SHALL start the HTTP connection pool and the supervisor of webhook requests before the job processor, and SHALL stop them only after it, so no delivery job runs while they are unavailable.
+
+#### Scenario: Supervision order
+- **WHEN** the application has started
+- **THEN** `Courier.Finch` and `Courier.Delivery.TaskSupervisor` were started before Oban, and Oban before `Courier.Delivery.QueueManager`
