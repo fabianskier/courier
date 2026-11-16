@@ -14,6 +14,9 @@ config :courier, Courier.Endpoints.URLPolicy,
   allowed_hosts: [],
   resolver: Courier.Endpoints.TestResolver
 
+# Webhook requests go to Req.Test stubs, never to the network.
+config :courier, Courier.Delivery.Client, plug: {Req.Test, Courier.Delivery.Client}
+
 # Configure your database
 #
 # The MIX_TEST_PARTITION environment variable can be used
