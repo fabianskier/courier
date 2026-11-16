@@ -20,6 +20,9 @@ config :courier, Courier.Endpoints.URLPolicy,
 # Webhook requests go to Req.Test stubs, never to the network.
 config :courier, Courier.Delivery.Client, plug: {Req.Test, Courier.Delivery.Client}
 
+# The demo simulator's requests go to Req.Test stubs too.
+config :courier, CourierDemo.Simulator, req_options: [plug: {Req.Test, CourierDemo.Simulator}]
+
 # Oban runs no queues with testing: :manual; the queue manager talks to a stub
 # that does nothing unless a test registers itself (test/support/test_queue_control.ex).
 config :courier, :queue_control, Courier.Delivery.TestQueueControl

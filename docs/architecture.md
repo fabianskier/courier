@@ -738,6 +738,48 @@ curl -s -X PUT http://localhost:4001/_secrets/shop \
 
 The Mix task and `CourierDemo.Receiver.serve/1` start only Bandit, not the courier application. `serve/1` takes `:ip`, `:port`, `:timeout_delay_ms` (else `COURIER_DEMO_TIMEOUT_MS`, else 35 000), `:retry_after`, `:tolerance_seconds` and `:secrets` (the agent's name, so tests can run several receivers). In development the URL policy allows `http` to `localhost`, `127.0.0.1` and `demo-receiver`; production does not, so a production courier cannot deliver to a local receiver.
 
+### Producer simulator
+
+`mix courier.simulate` plays the producer's side: it sends events to `POST <url>/api/v1/events` at a steady rate, with a share of exact repeats, and prints a summary. It does not start the courier application and needs no database; it talks to the API like any producer, with an API key that has the `ingest` scope.
+
+| Option | Default | Meaning |
+|---|---|---|
+| `--merchant ID` | required, repeatable | merchants to send events for; each event picks one at random |
+| `--token TOKEN` | `COURIER_INGEST_TOKEN` (required) | API key, sent as a Bearer key |
+| `--url URL` | `http://localhost:4000` | courier's base URL |
+| `--count N` | `100` | number of requests, at least 1 |
+| `--rate N` | `5` | requests per second, 1 to 1000 |
+| `--repeat-share S` | `0.1` | share of requests that repeat an earlier one, from 0 to 1 |
+| `--types A,B` | `payment.succeeded,payment.failed,refund.succeeded` | event types; each event picks one at random |
+
+A missing or invalid option prints what is wrong and exits with status 1 before anything is sent. Error messages name options, never their values, and the summary prints counts only, so the token is never printed.
+
+**Plan first, then send.** `CourierDemo.Simulator.plan/2` builds the whole list of requests (`{idempotency_key, body}`) before the first one is sent. A new event gets the key `sim-<run id>-<i>` (the run id is random, so two runs never share keys) and a body `{"type", "merchant_id", "payload": {"amount", "currency", "reference"}}`, encoded to JSON once. `plan/2` takes the random function as its second argument (default `:rand.uniform/0`), so tests make the plan deterministic.
+
+**Repeats.** Each request after the first is a repeat with probability `--repeat-share`: a copy of a random earlier new request, with the same idempotency key and the same body byte for byte, so courier answers `200` with the original event instead of creating a second one. The first request is never a repeat, and `--repeat-share 0` sends only new events.
+
+**Pacing.** `CourierDemo.Simulator.run/2` sends request `i` no earlier than `i * 1000 / rate` ms after the start, so `--count 10 --rate 20` takes at least 450 ms. Requests are scheduled, not chained, with up to 20 in flight and no retries: an API slower than the rate lowers the effective rate, which the summary's elapsed time shows. Because requests overlap, a repeat can reach courier before the request it copies; then the repeat is answered `202` and the original `200`, and the totals stay the same.
+
+**Summary.** When the run ends the task prints how many requests were answered `202` (new), `200` (repeats), with any other status (one line per status) and how many got no response, and exits with status 0:
+
+```text
+Sent 50 requests in 4.9 s:
+  44 new (202)
+  5 repeats (200)
+  1 rejected with status 422
+  0 failed (no response)
+```
+
+**Example.**
+
+```sh
+export COURIER_INGEST_TOKEN=ck_...   # a key with the ingest scope
+mix courier.simulate --merchant <merchant id> --merchant <other merchant id> \
+  --count 50 --rate 10 --repeat-share 0.2 --types payment.succeeded,refund.succeeded
+```
+
+Extra `Req` options come from `config :courier, CourierDemo.Simulator, req_options: [...]`; the test environment uses it to send the requests to `Req.Test` stubs instead of the network.
+
 ## Security notes
 
 - API keys are random tokens stored as SHA-256 hashes; the plaintext is shown once. Scopes: `ingest`, `read`, `write`.
