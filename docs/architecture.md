@@ -82,8 +82,8 @@ lib/courier/                 domain (contexts)
   access/                    API keys and scopes
 lib/courier_web/             thin web layer: router, controllers, JSON views, plugs
 lib/courier_mcp/             thin MCP adapter: tool definitions -> context calls
+lib/courier_demo/            demo tools: a receiver that verifies signatures and fails on purpose (FR-41)
 frontend/                    React SPA (Vite, TypeScript, shadcn/ui)
-demo/receiver/               small Plug app that verifies signatures and fails on purpose (FR-41)
 docs/                        analysis, architecture, decisions
 openspec/                    specs and changes
 ```
@@ -684,6 +684,60 @@ export COURIER_ADMIN_TOKEN="$(openssl rand -base64 32)"
 
 The courier metrics are on the dashboard's "Metrics" page, grouped under `courier`.
 
+## Demo tools
+
+Tools for showing courier with real requests (FR-40, FR-41). They live in `lib/courier_demo/` (`CourierDemo.*`), inside the courier project, so the same checks cover them. They are compiled in every environment, but nothing starts them unless asked: the courier application's supervision tree does not include them.
+
+### Demo receiver
+
+`CourierDemo.Receiver` is a small HTTP server (a `Plug.Router` served by Bandit) that plays the merchant's side. It runs in its own OS process, separate from courier's endpoint, and needs no database.
+
+| Request | Answer |
+|---|---|
+| `POST /hooks/<name>/ok` | `200` |
+| `POST /hooks/<name>/fail` | `500` |
+| `POST /hooks/<name>/rate-limit` | `429` with `retry-after: 30` |
+| `POST /hooks/<name>/bad-request` | `400` |
+| `POST /hooks/<name>/timeout` | `200` after 35 s, which is past courier's 30 s request deadline, so courier records a timeout |
+| `PUT /_secrets/<name>` | `204`, or `422` for an invalid secret |
+| anything else | `404` |
+
+`<name>` is 1 to 64 characters of lowercase letters, digits and `-`. It identifies the endpoint on the receiver's side: one receiver serves many endpoints, each with its own secret and behaviour.
+
+**Signature check.** The receiver verifies Standard Webhooks signatures with its own code, never with `Courier.Delivery.Signer`, so a delivery it accepts is an independent proof of the signer (a test delivers through `Courier.Delivery.Worker` to a running receiver). For a name with a registered secret it reads the raw body (up to 1 MB, without a body parser, because the signature covers the exact bytes) and accepts the request only when:
+
+- `webhook-id`, `webhook-timestamp` and `webhook-signature` are present;
+- the timestamp is an integer within 5 minutes of the receiver's clock;
+- one of the space-separated `v1,` entries of `webhook-signature` equals the base64 HMAC-SHA256 of `<webhook-id>.<webhook-timestamp>.<raw body>` with the secret's decoded key, compared in constant time. Several entries are accepted, so a secret rotation overlap works.
+
+Otherwise it answers `401` and the behaviour is not applied. A name without a registered secret is answered **unchecked**: the behaviour applies without verification, so the demo keeps working after a receiver restart.
+
+**Secret registration.** `PUT /_secrets/<name>` with `{"secret": "whsec_..."}` stores the secret for that name, replacing any earlier one. Secrets are kept in memory only (`CourierDemo.Receiver.Secrets`, an `Agent`): never written to disk, never logged, and lost when the receiver stops. A body without a `whsec_` secret whose remainder is valid base64 answers `422` and changes nothing.
+
+**Log.** One line per webhook request, with ids and the result only (no secrets, signatures or bodies):
+
+```text
+demo-receiver name=shop behaviour=ok signature=valid webhook-id=<event id> courier-delivery-id=<delivery id>
+```
+
+`signature` is `valid`, `invalid` or `unchecked`.
+
+**Starting it.** The receiver listens on `127.0.0.1:4001` by default.
+
+```sh
+mix courier.demo.receiver                        # development
+mix courier.demo.receiver --port 4010 --ip 0.0.0.0
+COURIER_DEMO_TIMEOUT_MS=5000 mix courier.demo.receiver   # a shorter /timeout delay
+bin/courier eval "CourierDemo.Receiver.serve()"  # from a release
+
+# register a secret (the one returned when the endpoint was created), then point the endpoint at it
+curl -s -X PUT http://localhost:4001/_secrets/shop \
+  -H "content-type: application/json" -d '{"secret": "whsec_..."}'
+# endpoint url: http://localhost:4001/hooks/shop/ok
+```
+
+The Mix task and `CourierDemo.Receiver.serve/1` start only Bandit, not the courier application. `serve/1` takes `:ip`, `:port`, `:timeout_delay_ms` (else `COURIER_DEMO_TIMEOUT_MS`, else 35 000), `:retry_after`, `:tolerance_seconds` and `:secrets` (the agent's name, so tests can run several receivers). In development the URL policy allows `http` to `localhost`, `127.0.0.1` and `demo-receiver`; production does not, so a production courier cannot deliver to a local receiver.
+
 ## Security notes
 
 - API keys are random tokens stored as SHA-256 hashes; the plaintext is shown once. Scopes: `ingest`, `read`, `write`.
@@ -695,3 +749,4 @@ The courier metrics are on the dashboard's "Metrics" page, grouped under `courie
 - Any repo call that writes a secret column passes `log: false`: Ecto logs query parameters at `debug` before Cloak encrypts them, so the plaintext would otherwise reach the logs.
 - MCP tool results mark payloads and response bodies as untrusted data; `resend_delivery` needs `write` scope.
 - The admin token (`COURIER_ADMIN_TOKEN`) opens LiveDashboard, which shows system internals: use a long random value and serve it only over HTTPS, because HTTP Basic auth sends it with every request. It is compared in constant time and never logged; without it the dashboard answers `404`. Telemetry metadata carries ids only, so the dashboard never shows payloads or secrets.
+- The demo receiver's `PUT /_secrets/<name>` has no authentication: anyone who can reach the receiver can register or replace a secret. It is a demo tool that holds only demo secrets, in memory; it binds to loopback by default and must stay on loopback or a private network. Never expose it publicly or register a production endpoint's secret with it.

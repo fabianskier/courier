@@ -65,6 +65,46 @@ defmodule CourierDemo.Receiver do
     }
   end
 
+  @doc """
+  Starts the receiver and blocks forever. It starts only what the receiver
+  needs (Bandit), not the courier application, so it needs no database:
+
+      $ mix courier.demo.receiver
+      $ bin/courier eval "CourierDemo.Receiver.serve()"
+
+  Takes the options of the module documentation. Without `:timeout_delay_ms`,
+  the delay comes from `COURIER_DEMO_TIMEOUT_MS` when it is set.
+  """
+  @spec serve(keyword()) :: no_return()
+  def serve(opts \\ []) do
+    opts = Keyword.put_new_lazy(opts, :timeout_delay_ms, &timeout_delay_from_env/0)
+    ip = Keyword.get(opts, :ip, {127, 0, 0, 1})
+    port = Keyword.get(opts, :port, 4001)
+
+    {:ok, _apps} = Application.ensure_all_started(:bandit)
+    {:ok, _supervisor} = Supervisor.start_link([{__MODULE__, opts}], strategy: :one_for_one)
+
+    Logger.info("demo-receiver listening on http://#{:inet.ntoa(ip)}:#{port}")
+    Process.sleep(:infinity)
+  end
+
+  defp timeout_delay_from_env do
+    case System.get_env("COURIER_DEMO_TIMEOUT_MS") do
+      nil ->
+        35_000
+
+      value ->
+        case Integer.parse(value) do
+          {ms, ""} when ms >= 0 ->
+            ms
+
+          _invalid ->
+            raise ArgumentError,
+                  "COURIER_DEMO_TIMEOUT_MS must be a non-negative integer, got: #{inspect(value)}"
+        end
+    end
+  end
+
   @impl Plug
   def init(opts) do
     %{
