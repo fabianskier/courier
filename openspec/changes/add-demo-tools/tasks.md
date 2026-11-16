@@ -17,7 +17,7 @@ Each task must stay within the gate's diff budget (about 600 changed lines, test
 
 ## 4. Demo walkthrough
 
-- [ ] 4.1 Add a "Local demo" section to `README.md` (start Postgres, `mix courier.demo.receiver`, `mix ecto.reset`, `mix phx.server`, the printed `mix courier.simulate` command, what to look for in `GET /api/v1/deliveries/:id` and on `/admin/dashboard`, and resending after switching `harbor-fail`'s URL to `/ok`), update its status line, and mark step 7 done in `docs/roadmap.md` with a new manual step 7b (Docker image with `mix phx.gen.release --docker`, `courier` and `demo-receiver` services in `compose.yaml`) as next; verify `mix precommit`, `sh .smelt/checks.sh` and `openspec validate add-demo-tools --strict` pass and every scenario in `specs/` has a test with the same name
+- [x] 4.1 Add a "Local demo" section to `README.md` (start Postgres, `mix courier.demo.receiver`, `mix ecto.reset`, `mix phx.server`, the printed `mix courier.simulate` command, what to look for in `GET /api/v1/deliveries/:id` and on `/admin/dashboard`, and resending after switching `harbor-fail`'s URL to `/ok`), update its status line, and mark step 7 done in `docs/roadmap.md` with a new manual step 7b (Docker image with `mix phx.gen.release --docker`, `courier` and `demo-receiver` services in `compose.yaml`) as next; verify `mix precommit`, `sh .smelt/checks.sh` and `openspec validate add-demo-tools --strict` pass and every scenario in `specs/` has a test with the same name
 
 ## Workflow follow-up
 

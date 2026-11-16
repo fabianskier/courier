@@ -9,7 +9,80 @@ A reliable **webhook delivery engine** in Elixir, with a React + shadcn/ui dashb
 - Append-only audit trail of every attempt; manual resend that never rewrites history.
 - MCP server: read-only tools by default, a separate tool for resends.
 
-> **Status:** design phase. The analysis, architecture and decisions are written; implementation starts next. See [docs/roadmap.md](docs/roadmap.md).
+> **Status:** the backend works end to end: ingestion, signed delivery with retries and dead letters, manual resend, telemetry, and demo tools to see it all locally (see [Local demo](#local-demo)). The Docker image, the MCP server and the dashboard come next. See [docs/roadmap.md](docs/roadmap.md).
+
+## Local demo
+
+Shows successes, retries, dead letters, skipped deliveries, a slow endpoint and a manual resend with real signed requests. It needs Elixir and Erlang (versions in `mise.toml`), PostgreSQL and three terminals. The demo tools are described in [docs/architecture.md](docs/architecture.md#demo-tools).
+
+**1. Start PostgreSQL** (or use a local one) and fetch the dependencies:
+
+```sh
+docker compose up -d postgres
+mix deps.get
+```
+
+**2. Start the demo receiver** (terminal 1). It plays the merchants' side on `127.0.0.1:4001`, checks every signature with its own code and logs one line per webhook:
+
+```sh
+mix courier.demo.receiver
+```
+
+**3. Create the database and the demo data** (terminal 2). Do it while the receiver runs, so the seeds can register each endpoint's signing secret with it:
+
+```sh
+mix ecto.reset
+```
+
+The output shows, only this once, the token of the `demo` API key, three merchants, five endpoints (one per receiver behaviour) and a ready `mix courier.simulate` command. Keep it at hand. `mix ecto.reset` drops the development database; run it again whenever you want a fresh demo.
+
+**4. Start courier** (terminal 2):
+
+```sh
+mix phx.server
+```
+
+**5. Send events** (terminal 3) with the command the seeds printed. It sends 100 events at 5 per second, about 10% of them exact repeats:
+
+```sh
+mix courier.simulate --token ck_... --merchant <id> --merchant <id> --merchant <id>
+```
+
+The summary counts new events (`202`) and repeats (`200`): a repeated `Idempotency-Key` returns the original event and creates no delivery. Terminal 1 shows the webhooks arriving with `signature=valid`.
+
+**6. Look at the deliveries.** Each event creates one delivery per endpoint of its merchant. List a merchant's events, open one to get its delivery ids, then open a delivery to see its attempts:
+
+```sh
+export TOKEN=ck_...   # the demo key
+curl -s -H "authorization: Bearer $TOKEN" "http://localhost:4000/api/v1/events?merchant_id=<merchant id>"
+curl -s -H "authorization: Bearer $TOKEN" http://localhost:4000/api/v1/events/<event id>
+curl -s -H "authorization: Bearer $TOKEN" http://localhost:4000/api/v1/deliveries/<delivery id>
+```
+
+What to look for in `GET /api/v1/deliveries/:id` (`status`, `attempt_count`, `next_attempt_at`, `window_ends_at`, and each of the `attempts` with its `response_status`, `error` and `duration_ms`):
+
+| Merchant | Endpoint | What its deliveries show |
+|---|---|---|
+| Sunrise Bakery | `sunrise-ok` | `succeeded` after one attempt with `200`; `skipped`, with no attempts, for `refund.succeeded` events, which its `payment.*` filter leaves out |
+| Harbor Outfitters | `harbor-fail` | `pending` with a growing list of `500` attempts and a `next_attempt_at` that backs off; `failed` (dead letter) within 5 minutes, when its retry window ends |
+| Harbor Outfitters | `harbor-rate-limit` | `pending` with `429` attempts, retried no sooner than the receiver's `Retry-After` of 30 s |
+| Pine Hardware | `pine-bad-request` | `failed` after a single `400` attempt: a `4xx` is not retried |
+| Pine Hardware | `pine-timeout` | attempts with the error `timeout` after 15 s, two at a time; the other endpoints keep their pace meanwhile |
+
+**7. Open the dashboard** at <http://localhost:4000/admin/dashboard> (any user name; the password in development is `courier-dev-admin-token-not-a-secret`). Under **Metrics**, the `courier` tab shows events ingested by type, attempts by outcome and their duration, deliveries succeeded and failed, retries scheduled, and the lag of each endpoint's queue: the queue of `pine-timeout` falls behind while the others stay near zero.
+
+**8. Fix an endpoint and resend.** Point `harbor-fail` at the receiver's `/ok` path (its endpoint id is in the seeds' output), then resend one of its `failed` deliveries:
+
+```sh
+curl -s -X PATCH http://localhost:4000/api/v1/endpoints/<harbor-fail endpoint id> \
+  -H "authorization: Bearer $TOKEN" -H "content-type: application/json" \
+  -d '{"url": "http://localhost:4001/hooks/harbor-fail/ok"}'
+
+curl -s -X POST -H "authorization: Bearer $TOKEN" \
+  http://localhost:4000/api/v1/deliveries/<failed delivery id>/resend
+```
+
+The resend answers `202` with a new delivery, linked to the old one by `resend_of_id` and with `triggered_by` set to `api_key:demo`; it succeeds on its first attempt. The failed delivery and its attempts stay as they were, and it now lists the new one under `resends`. Deliveries of `harbor-fail` that were still `pending` succeed on their next retry. A `pending` delivery cannot be resent (`409 delivery_in_progress`).
 
 ## Documentation
 
