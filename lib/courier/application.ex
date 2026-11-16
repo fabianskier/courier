@@ -11,9 +11,6 @@ defmodule Courier.Application do
       CourierWeb.Telemetry,
       Courier.Vault,
       Courier.Repo,
-      {Oban, Application.fetch_env!(:courier, Oban)},
-      # Starts one queue per enabled endpoint; must come after Oban.
-      Courier.Delivery.QueueManager,
       # Webhook delivery: Finch keeps one pool per origin, each at least as
       # large as the largest allowed endpoint max_concurrency (50). The
       # connect timeout lives here because Req does not accept
@@ -23,6 +20,9 @@ defmodule Courier.Application do
        pools: %{default: [size: 50, conn_opts: [transport_opts: [timeout: 5_000]]]}},
       # Runs each webhook request so it can be killed at its total deadline.
       {Task.Supervisor, name: Courier.Delivery.TaskSupervisor},
+      {Oban, Application.fetch_env!(:courier, Oban)},
+      # Starts one queue per enabled endpoint; must come after Oban.
+      Courier.Delivery.QueueManager,
       {DNSCluster, query: Application.get_env(:courier, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Courier.PubSub},
       # Start a worker by calling: Courier.Worker.start_link(arg)
