@@ -1,7 +1,8 @@
 defmodule CourierWeb.EventJSON do
   @moduledoc """
   JSON rendering for events: `{"data": ...}` with the event and its
-  deliveries (`id`, `endpoint_id`, `status`, `window_ends_at`), and
+  deliveries (`id`, `endpoint_id`, `status`, `window_ends_at`,
+  `resend_of_id`), and
   `{"data": [...], "next_cursor": ...}` for a page of events without their
   deliveries. The idempotency key and request hash are never rendered.
   """
@@ -37,7 +38,8 @@ defmodule CourierWeb.EventJSON do
       id: delivery.id,
       endpoint_id: delivery.endpoint_id,
       status: delivery.status,
-      window_ends_at: iso8601(delivery.window_ends_at)
+      window_ends_at: iso8601(delivery.window_ends_at),
+      resend_of_id: delivery.resend_of_id
     }
   end
 

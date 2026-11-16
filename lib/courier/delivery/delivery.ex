@@ -24,6 +24,7 @@ defmodule Courier.Delivery.Delivery do
     belongs_to :endpoint, Courier.Endpoints.Endpoint
     belongs_to :resend_of, __MODULE__
     has_many :attempts, Courier.Audit.Attempt
+    has_many :resends, __MODULE__, foreign_key: :resend_of_id
 
     field :status, :string
     field :attempt_count, :integer, default: 0

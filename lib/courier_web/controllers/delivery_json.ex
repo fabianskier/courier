@@ -1,13 +1,15 @@
 defmodule CourierWeb.DeliveryJSON do
   @moduledoc """
-  JSON rendering for a delivery: `{"data": ...}` with its status, timing and
-  attempts in order. Attempt request headers are never rendered.
+  JSON rendering for a delivery: `{"data": ...}` with its status, timing,
+  resend links (`resend_of_id`, `triggered_by` and its direct `resends`,
+  oldest first) and attempts in order. Attempt request headers are never
+  rendered.
   """
 
   alias Courier.Audit.Attempt
   alias Courier.Delivery.Delivery
 
-  @doc "Renders one delivery with its preloaded attempts."
+  @doc "Renders one delivery with its preloaded attempts and resends."
   def show(%{delivery: delivery}), do: %{data: data(delivery)}
 
   defp data(%Delivery{} = delivery) do
@@ -20,7 +22,19 @@ defmodule CourierWeb.DeliveryJSON do
       next_attempt_at: iso8601(delivery.next_attempt_at),
       window_ends_at: iso8601(delivery.window_ends_at),
       completed_at: iso8601(delivery.completed_at),
+      resend_of_id: delivery.resend_of_id,
+      triggered_by: delivery.triggered_by,
+      resends: Enum.map(delivery.resends, &resend/1),
       attempts: Enum.map(delivery.attempts, &attempt/1)
+    }
+  end
+
+  defp resend(%Delivery{} = resend) do
+    %{
+      id: resend.id,
+      status: resend.status,
+      triggered_by: resend.triggered_by,
+      inserted_at: iso8601(resend.inserted_at)
     }
   end
 

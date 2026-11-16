@@ -46,6 +46,27 @@ defmodule CourierWeb.FallbackController do
     })
   end
 
+  def call(conn, {:error, :delivery_in_progress}) do
+    respond(conn, :conflict, %{
+      code: "delivery_in_progress",
+      message: "The delivery is still pending."
+    })
+  end
+
+  def call(conn, {:error, :resend_in_progress}) do
+    respond(conn, :conflict, %{
+      code: "resend_in_progress",
+      message: "The delivery already has a pending resend."
+    })
+  end
+
+  def call(conn, {:error, :endpoint_disabled}) do
+    respond(conn, :unprocessable_entity, %{
+      code: "endpoint_disabled",
+      message: "The delivery's endpoint is disabled."
+    })
+  end
+
   def call(conn, {:error, :idempotency_key_reused}) do
     respond(conn, :unprocessable_entity, %{
       code: "idempotency_key_reused",

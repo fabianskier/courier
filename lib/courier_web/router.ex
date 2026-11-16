@@ -24,6 +24,7 @@ defmodule CourierWeb.Router do
 
     resources "/events", EventController, only: [:index, :show, :create]
     resources "/deliveries", DeliveryController, only: [:show]
+    post "/deliveries/:id/resend", DeliveryController, :resend
   end
 
   # Enable LiveDashboard in development

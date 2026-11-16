@@ -25,16 +25,18 @@ defmodule Courier.Delivery do
   @type health_change :: :degraded | :recovered | nil
 
   @doc """
-  Returns `{:ok, delivery}` with its attempts preloaded in `number` order, or
-  `{:error, :not_found}` for an unknown or malformed id.
+  Returns `{:ok, delivery}` with its attempts preloaded in `number` order and
+  its direct resends preloaded oldest first, or `{:error, :not_found}` for an
+  unknown or malformed id.
   """
   @spec get_delivery(term()) :: {:ok, Delivery.t()} | {:error, :not_found}
   def get_delivery(id) do
     attempts = from a in Attempt, order_by: [asc: a.number]
+    resends = from d in Delivery, order_by: [asc: d.inserted_at, asc: d.id]
 
     with {:ok, uuid} <- Ecto.UUID.cast(id),
          %Delivery{} = delivery <- Repo.get(Delivery, uuid) do
-      {:ok, Repo.preload(delivery, attempts: attempts)}
+      {:ok, Repo.preload(delivery, attempts: attempts, resends: resends)}
     else
       _ -> {:error, :not_found}
     end
