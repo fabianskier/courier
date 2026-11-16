@@ -48,7 +48,7 @@ It is a public portfolio project. Goals besides the product itself: show payment
 - **FR-14** Retries use exponential backoff with jitter, capped, and honour `Retry-After` on `429` and `503`.
 - **FR-15** Retries stop at the end of the retry window (default 24 h, configurable per endpoint, maximum 24 h). The delivery then becomes `failed` (dead-letter) and stays visible.
 - **FR-16** Redirects are not followed; a `3xx` counts as a non-retryable failure.
-- **FR-17** After N consecutive failed attempts (default 20, TBD) an endpoint is marked `degraded` and a telemetry event is emitted. A success clears the flag. Deliveries keep retrying within their window; the endpoint is not paused.
+- **FR-17** After N consecutive failed attempts (default 20, one global value, configurable with `config :courier, :degraded_threshold`) an endpoint is marked `degraded` and a telemetry event is emitted. A success clears the flag. Deliveries keep retrying within their window; the endpoint is not paused.
 - **FR-35** Deliveries run concurrently. Each endpoint has its own concurrency limit (`max_concurrency`, default 10, configurable per endpoint).
 - **FR-36** A slow or failing endpoint never delays deliveries to other endpoints: with one endpoint timing out on every request, the time to first attempt for the others stays within the NFR target.
 
@@ -154,5 +154,5 @@ Targets are for a single node on a developer laptop (local demo), measured by a 
 
 | Question | Owner / next step |
 |---|---|
-| Exact N for `degraded` (FR-17) and default backoff numbers. | Settle in the delivery spec; adjust after the load test. |
+| ~~Exact N for `degraded` (FR-17) and default backoff numbers.~~ | Resolved. N is 20 by default, one global value for all endpoints, configurable with `config :courier, :degraded_threshold` (`add-endpoint-health`); per-endpoint thresholds can come later if needed. Backoff: base 10 s, cap 1 h, full jitter (`add-webhook-delivery`). Both can be adjusted after the load test. |
 | License for the public repo (proposal: MIT). | Author (ADR). |

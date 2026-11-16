@@ -14,7 +14,7 @@ Each task must stay within the gate's diff budget (about 600 changed lines, test
 
 ## 3. Docs
 
-- [ ] 3.1 Document endpoint health (counting, threshold and its config, telemetry events, API fields and filter), the window sweeper and the isolation guarantee in `docs/architecture.md`; resolve the open question on N in `docs/analysis.md` (default 20, global, configurable); mark step 4b done in `docs/roadmap.md` with `add-manual-resend` (step 5) as next; verify `mix precommit`, `sh .smelt/checks.sh` and `openspec validate add-endpoint-health --strict` pass and every scenario in `specs/` has a test with the same name
+- [x] 3.1 Document endpoint health (counting, threshold and its config, telemetry events, API fields and filter), the window sweeper and the isolation guarantee in `docs/architecture.md`; resolve the open question on N in `docs/analysis.md` (default 20, global, configurable); mark step 4b done in `docs/roadmap.md` with `add-manual-resend` (step 5) as next; verify `mix precommit`, `sh .smelt/checks.sh` and `openspec validate add-endpoint-health --strict` pass and every scenario in `specs/` has a test with the same name
 
 ## Workflow follow-up
 

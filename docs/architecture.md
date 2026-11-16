@@ -65,7 +65,7 @@ flowchart TB
 Notes:
 
 - **One deployable.** API, MCP, delivery workers and LiveDashboard run in the same release. The web layer and the MCP layer are thin adapters over the contexts in `lib/courier/`.
-- **Concurrency and isolation.** Each enabled endpoint has its own Oban queue (`endpoint:<id>`) with its own limit, so deliveries run concurrently across endpoints and a slow endpoint only uses its own slots. `QueueManager` keeps the running queues in sync with the endpoints table (at boot and on every endpoint change).
+- **Concurrency and isolation.** Each enabled endpoint has its own Oban queue (`endpoint:<id>`) with its own limit, so deliveries run concurrently across endpoints and a slow endpoint only uses its own slots (proved by a test, see "Endpoint health"). `QueueManager` keeps the running queues in sync with the endpoints table (at boot and on every endpoint change).
 - **Dashboard updates.** Contexts broadcast changes over PubSub; `DashboardChannel` forwards small notices (ids and statuses) and the SPA invalidates its TanStack Query caches, then refetches over REST.
 - **Local runtime.** `docker compose up` starts `courier`, `postgres` and `demo-receiver`. Developers can also run with mise + a local Postgres.
 - **SPA.** Built by Vite into `priv/static` and served by Phoenix on the same origin (no CORS). In development the Vite dev server proxies `/api` and `/socket` to Phoenix.
@@ -146,7 +146,7 @@ sequenceDiagram
         W->>M: signed POST (attempt n)
         M-->>W: 503 / timeout / connection refused
         W->>DB: insert attempt n (status, duration, error)<br/>increment endpoint consecutive failures
-        alt failures >= N
+        alt failures reach the threshold (default 20)
             W->>DB: mark endpoint degraded
             W-->>W: telemetry: endpoint degraded
         end
@@ -346,7 +346,7 @@ Any failure becomes one field error, `url: "must be a public https URL"`, which 
 
 **Encryption at rest.** `secret` and `previous_secret` use `Courier.Encrypted.Binary` (`Cloak.Ecto.Binary`) through `Courier.Vault` (`Cloak.Ciphers.AES.GCM`, AES-256-GCM, tag `AES.GCM.V1`). The key comes from `COURIER_ENCRYPTION_KEY`, the base64 encoding of 32 random bytes (`openssl rand -base64 32`). It is required in production: boot fails with a clear message when it is missing or not 32 bytes. Development and test use fixed, non-secret keys written in their config files. Losing the key makes stored secrets unreadable; after restoring with a new key, rotate every endpoint's secret.
 
-**Pagination** (`Courier.Pagination`). List endpoints take `limit` (default 50, 1 to 100) and an opaque `cursor`, and answer `{"data": [...], "next_cursor": "..."}`, with `next_cursor` `null` on the last page. Pagination is keyset on `(inserted_at, id)` ascending, so items are oldest first and pages do not repeat or skip rows when new ones are inserted. The cursor is URL-safe base64 of the last item's timestamp and id; an invalid `limit` or a cursor the system did not issue returns `422 invalid`. `GET /api/v1/endpoints` also accepts `merchant_id`.
+**Pagination** (`Courier.Pagination`). List endpoints take `limit` (default 50, 1 to 100) and an opaque `cursor`, and answer `{"data": [...], "next_cursor": "..."}`, with `next_cursor` `null` on the last page. Pagination is keyset on `(inserted_at, id)` ascending, so items are oldest first and pages do not repeat or skip rows when new ones are inserted. The cursor is URL-safe base64 of the last item's timestamp and id; an invalid `limit` or a cursor the system did not issue returns `422 invalid`. `GET /api/v1/endpoints` also accepts `merchant_id` and `degraded` (see "Endpoint health").
 
 ```sh
 curl -s -X POST http://localhost:4000/api/v1/endpoints -H "Authorization: Bearer $COURIER_TOKEN" \
@@ -488,7 +488,9 @@ A delivery's status only moves forward, from `pending` to `succeeded` or `failed
 
 **Attempts** (`Courier.Audit.Attempt`, table `attempts`). Every attempt, including a rejected URL, is one row: `number` (1, 2, … per delivery, unique), `started_at`, `duration_ms`, `url`, `request_headers` (every header sent, with `webhook-signature` stored as `[redacted]`), `response_status`, `response_body` (first 4096 bytes, invalid UTF-8 and NUL bytes replaced) and `error`. The attempt and the delivery's new state are written in one transaction that locks the delivery row; the lock is never held during the HTTP request. A database trigger, `attempts_append_only()`, rejects every `UPDATE` and every `DELETE` unless the transaction ran `SET LOCAL courier.retention = on`, which only the retention job will do.
 
-**Queues per endpoint** (`Courier.Delivery.QueueManager`). Each enabled endpoint has its own Oban queue `endpoint:<endpoint id>` with a limit of the endpoint's `max_concurrency`, so a slow endpoint only uses its own share of concurrency. The manager starts after Oban and starts the queues of all enabled endpoints at boot. Creating or enabling an endpoint starts its queue, changing `max_concurrency` scales it, and disabling it stops it; the pending deliveries of a disabled endpoint keep their jobs and resume when it is enabled again (until their windows end). Queue limits are per node, which matches the single node of v1.
+**Queues per endpoint** (`Courier.Delivery.QueueManager`). Each enabled endpoint has its own Oban queue `endpoint:<endpoint id>` with a limit of the endpoint's `max_concurrency`, so a slow endpoint only uses its own share of concurrency. The manager starts after Oban and starts the queues of all enabled endpoints at boot. Creating or enabling an endpoint starts its queue, changing `max_concurrency` scales it, and disabling it stops it; the pending deliveries of a disabled endpoint keep their jobs and resume when it is enabled again (until their windows end, when the window sweeper fails them). Queue limits are per node, which matches the single node of v1.
+
+**Window sweeper** (`Courier.Delivery.WindowSweeper`). A delivery normally reaches a terminal state in its own job, but the job of a disabled endpoint never runs (its queue is stopped), and a job can be lost. `Oban.Plugins.Cron` therefore runs the sweeper every 5 minutes (`*/5 * * * *`) in `maintenance`, the only static Oban queue (limit 1). Each run takes up to 500 `pending` deliveries with `window_ends_at <= now`, oldest first, cancels their delivery jobs (`Oban.cancel_all_jobs/1`, matched by the `delivery_id` job argument) and marks each one `failed` with `completed_at` set and **no attempt** (`Courier.Delivery.fail_without_attempt/2`). Jobs are cancelled first, so a run that crashes in between leaves the deliveries `pending` for the next run. A full batch makes the sweeper insert itself again to continue at once. Pending deliveries inside their window and terminal deliveries are never touched. A delivery failed by the sweeper stays failed even if its endpoint is enabled again later; a resend is the way to deliver it.
 
 **Reading a delivery.** `GET /api/v1/deliveries/:id` needs the `read` scope and returns the delivery with its attempts in order. Request headers are never returned. An unknown or malformed id returns `404 not_found`.
 
@@ -502,6 +504,57 @@ curl -s http://localhost:4000/api/v1/deliveries/<delivery_id> -H "Authorization:
 #     {"number": 2, "started_at": "2026-11-15T10:00:12.300000Z", "duration_ms": 95, "url": "https://hooks.example.com/courier",
 #      "response_status": 200, "response_body": "ok", "error": null}]}}
 ```
+
+## Endpoint health
+
+Operators need to see which endpoints are failing before merchants complain (FR-17), and a failing endpoint must not slow down the others (FR-36).
+
+**Counting.** Each endpoint has `consecutive_failures`: the number of attempts that did not get a `2xx` since its last success. `Courier.Delivery.record_attempt/3` updates it in the **same transaction** that stores the attempt and the delivery's new state, so the count changes exactly once per stored attempt:
+
+| Attempt | Effect on the endpoint |
+|---|---|
+| `2xx` | `consecutive_failures` = 0, `degraded_at` cleared |
+| anything else that stores an attempt (status not `2xx`, network error, timeout, rejected URL, unresolvable host), retried or not | `consecutive_failures` + 1 |
+| no attempt stored (window ended, sweeper, stale result, endpoint disabled when the job runs) | nothing |
+
+The transaction locks the delivery row first and the endpoint row second (`SELECT ... FOR UPDATE`), always in that order, so concurrent attempts of one endpoint serialize briefly on the endpoint row and cannot deadlock. The cost is one short `UPDATE` per attempt, bounded by the endpoint's `max_concurrency`.
+
+**Degraded flag.** When the count reaches the threshold and the endpoint is not yet degraded, `degraded_at` is set to the current time. The next successful attempt clears it. Being degraded is only a signal: the queue is not paused, and deliveries keep retrying inside their windows as usual.
+
+**Threshold.** One global value, 20 by default:
+
+```elixir
+config :courier, :degraded_threshold, 20
+```
+
+It is read on each failed attempt (`Courier.Delivery.degraded_threshold/0`) and must be a positive integer; anything else raises an `ArgumentError`. There is no per-endpoint threshold. Changing the value does not re-evaluate endpoints at once: an endpoint already degraded stays so until its next success, and one at or above a lowered threshold becomes degraded on its next failure.
+
+**Telemetry.** Events are emitted after the transaction commits, so a rolled-back change emits nothing, and once per transition: further failures of a degraded endpoint emit nothing new.
+
+| Event | Measurements | Metadata |
+|---|---|---|
+| `[:courier, :endpoint, :degraded]` | `%{consecutive_failures: n}` | `%{endpoint_id: id, merchant_id: id}` |
+| `[:courier, :endpoint, :recovered]` | `%{}` | `%{endpoint_id: id, merchant_id: id}` |
+
+Metrics and dashboards for these events come with `add-observability` (step 6).
+
+**API.** Every endpoint response includes its health, and the list can be filtered by it:
+
+| Field | Meaning |
+|---|---|
+| `consecutive_failures` | failed attempts since the last success |
+| `degraded` | `true` when `degraded_at` is set |
+| `degraded_at` | when the endpoint became degraded, or `null` |
+
+`GET /api/v1/endpoints?degraded=true` lists only degraded endpoints and `degraded=false` only those that are not; any other value is ignored. The filter combines with `merchant_id` and pagination. The fields are read-only: no request can set them.
+
+```sh
+curl -s "http://localhost:4000/api/v1/endpoints?degraded=true" -H "Authorization: Bearer $COURIER_TOKEN"
+# {"data": [{"id": "...", "url": "https://hooks.example.com/courier", ..., "consecutive_failures": 23,
+#            "degraded": true, "degraded_at": "2026-11-16T09:12:44.512345Z"}], "next_cursor": null}
+```
+
+**Isolation guarantee.** An endpoint that is slow on every request does not delay the first attempt of another endpoint's delivery, because each endpoint's jobs run in its own Oban queue with its own limit (see "Queues per endpoint") and the HTTP pool is per origin. `test/courier/delivery/endpoint_isolation_test.exs` proves it with real Oban queues and real HTTP servers on loopback: one endpoint takes 3 s to answer and has 6 jobs for a limit of 2; a delivery then created for another endpoint succeeds in under 2 s, while the slow endpoint still has 2 jobs executing, 4 waiting in its own queue and none finished. This is the test the queue ADR asks for. The guarantee is per node, like the queue limits.
 
 ## Security notes
 
