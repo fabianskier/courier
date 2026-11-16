@@ -14,7 +14,7 @@ Each task must stay within the gate's diff budget (about 600 changed lines, test
 
 ## 3. Docs
 
-- [ ] 3.1 Document observability in `docs/architecture.md` (event table, metrics, queue lag, how to open the dashboard in dev and set `COURIER_ADMIN_TOKEN` in prod), add the token to "Security notes", and mark step 6 done in `docs/roadmap.md` with `add-demo-tools` (step 7) as next; verify `mix precommit`, `sh .smelt/checks.sh` and `openspec validate add-observability --strict` pass and every scenario in `specs/` has a test with the same name
+- [x] 3.1 Document observability in `docs/architecture.md` (event table, metrics, queue lag, how to open the dashboard in dev and set `COURIER_ADMIN_TOKEN` in prod), add the token to "Security notes", and mark step 6 done in `docs/roadmap.md` with `add-demo-tools` (step 7) as next; verify `mix precommit`, `sh .smelt/checks.sh` and `openspec validate add-observability --strict` pass and every scenario in `specs/` has a test with the same name
 
 ## Workflow follow-up
 
