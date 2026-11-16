@@ -1,13 +1,45 @@
-# Local services. For now only PostgreSQL; the app and the demo receiver are
-# added by later changes (see docs/roadmap.md).
+# Local services.
+#
+#   docker compose up -d postgres   only PostgreSQL, for development with mix
+#   docker compose up -d --build    the whole demo: courier, PostgreSQL and the demo receiver
+#
+# The values below are fixed and NOT secret: they exist only so the demo runs
+# without setup. Never reuse them outside this file.
+
+# One image for courier and the demo receiver: the production release. Both
+# get the same environment, because the release reads it at boot
+# (config/runtime.exs) whatever it runs; the receiver itself uses no database.
+x-courier: &courier
+  image: courier:local
+  build: .
+  environment:
+    DATABASE_URL: ecto://postgres:postgres@postgres/courier
+    PHX_HOST: localhost
+    SECRET_KEY_BASE: courier-demo-secret-key-base-not-a-secret-courier-demo-secret-key-base
+    # base64 of the 32 bytes "courier-demo-key-not-a-secret!!!"
+    COURIER_ENCRYPTION_KEY: Y291cmllci1kZW1vLWtleS1ub3QtYS1zZWNyZXQhISE=
+    # Password of http://localhost:4000/admin/dashboard (any user name).
+    COURIER_ADMIN_TOKEN: courier-demo-admin-token-not-a-secret
+    # Demo only: lets endpoints point at the plain-http demo receiver on the
+    # private network. Production leaves both unset (https and public
+    # addresses only).
+    COURIER_ALLOW_HTTP: "true"
+    COURIER_ALLOWED_HOSTS: demo-receiver
+    # Where the demo seeds point the endpoints and register their secrets.
+    COURIER_DEMO_RECEIVER_URL: http://demo-receiver:4001
+
 services:
   postgres:
     image: postgres:18
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
+      # The database of the `courier` service, created on the volume's first
+      # start. Development with mix creates its own (`mix ecto.create`).
+      POSTGRES_DB: courier
     ports:
-      - "5432:5432"
+      # Set COURIER_POSTGRES_PORT when 5432 is taken by a local PostgreSQL.
+      - "${COURIER_POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres-data:/var/lib/postgresql
     healthcheck:
@@ -15,6 +47,25 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+
+  courier:
+    <<: *courier
+    # Migrates the database, then starts the release with the HTTP server.
+    command: ["sh", "-c", "bin/migrate && exec bin/server"]
+    ports:
+      - "4000:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      demo-receiver:
+        condition: service_started
+
+  # Plays the merchants' side. Not published to the host: only courier
+  # reaches it, on the private network. Follow it with
+  # `docker compose logs -f demo-receiver`.
+  demo-receiver:
+    <<: *courier
+    command: ["bin/courier", "eval", "CourierDemo.Receiver.serve(ip: {0, 0, 0, 0})"]
 
 volumes:
   postgres-data:

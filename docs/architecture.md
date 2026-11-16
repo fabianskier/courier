@@ -67,7 +67,7 @@ Notes:
 - **One deployable.** API, MCP, delivery workers and LiveDashboard run in the same release. The web layer and the MCP layer are thin adapters over the contexts in `lib/courier/`.
 - **Concurrency and isolation.** Each enabled endpoint has its own Oban queue (`endpoint:<id>`) with its own limit, so deliveries run concurrently across endpoints and a slow endpoint only uses its own slots (proved by a test, see "Endpoint health"). `QueueManager` keeps the running queues in sync with the endpoints table (at boot and on every endpoint change).
 - **Dashboard updates.** Contexts broadcast changes over PubSub; `DashboardChannel` forwards small notices (ids and statuses) and the SPA invalidates its TanStack Query caches, then refetches over REST.
-- **Local runtime.** `docker compose up` starts `courier`, `postgres` and `demo-receiver`. Developers can also run with mise + a local Postgres.
+- **Local runtime.** `docker compose up` starts `courier`, `postgres` and `demo-receiver` (see "Docker demo"). Developers can also run with mise + a local Postgres.
 - **SPA.** Built by Vite into `priv/static` and served by Phoenix on the same origin (no CORS). In development the Vite dev server proxies `/api` and `/socket` to Phoenix.
 
 ## Code layout (proposed)
@@ -338,7 +338,7 @@ Endpoints are never deleted. An unknown `merchant_id` on create is a field error
 1. its scheme is `https` (or `http` where `require_https: false`), it has a host and no user info;
 2. its host is on `allowed_hosts` (case-insensitive), **or** every address it resolves to (IP literal or DNS, IPv4 and IPv6) is public. Blocked: `0.0.0.0/8`, `10.0.0.0/8`, `100.64.0.0/10`, `127.0.0.0/8`, `169.254.0.0/16`, `172.16.0.0/12`, `192.0.0.0/24`, `192.168.0.0/16`, `198.18.0.0/15`, `224.0.0.0/4`, `240.0.0.0/4`, `::/96`, `fc00::/7`, `fe80::/10`, `ff00::/8`; IPv4-mapped (`::ffff:0:0/96`) and NAT64 (`64:ff9b::/96`) addresses are checked as their embedded IPv4. A host that does not resolve is rejected.
 
-Any failure becomes one field error, `url: "must be a public https URL"`, which never echoes resolved addresses. Configuration (`config :courier, Courier.Endpoints.URLPolicy`): production uses `require_https: true, allowed_hosts: []`; development allows `http` and `localhost`, `127.0.0.1` and `demo-receiver`; tests use `Courier.Endpoints.TestResolver`, which resolves by naming convention (`*.public.test`, `*.private.test`, `*.v6private.test`) and never touches the network.
+Any failure becomes one field error, `url: "must be a public https URL"`, which never echoes resolved addresses. Configuration (`config :courier, Courier.Endpoints.URLPolicy`): production uses `require_https: true, allowed_hosts: []`, which only `COURIER_ALLOW_HTTP=true` and `COURIER_ALLOWED_HOSTS` (comma-separated hosts) relax, read in `config/runtime.exs` and set by the Docker demo only; development allows `http` and `localhost`, `127.0.0.1` and `demo-receiver`; tests use `Courier.Endpoints.TestResolver`, which resolves by naming convention (`*.public.test`, `*.private.test`, `*.v6private.test`) and never touches the network.
 
 **Signing secrets.** Each endpoint gets `"whsec_" <> Base.encode64(32 random bytes)` (Standard Webhooks format). The secret is returned only by `POST /api/v1/endpoints` and `POST /api/v1/endpoints/:id/rotate_secret`; no other response, log line or `inspect/1` output contains it.
 
@@ -736,7 +736,7 @@ curl -s -X PUT http://localhost:4001/_secrets/shop \
 # endpoint url: http://localhost:4001/hooks/shop/ok
 ```
 
-The Mix task and `CourierDemo.Receiver.serve/1` start only Bandit, not the courier application. `serve/1` takes `:ip`, `:port`, `:timeout_delay_ms` (else `COURIER_DEMO_TIMEOUT_MS`, else 35 000), `:retry_after`, `:tolerance_seconds` and `:secrets` (the agent's name, so tests can run several receivers). In development the URL policy allows `http` to `localhost`, `127.0.0.1` and `demo-receiver`; production does not, so a production courier cannot deliver to a local receiver.
+The Mix task and `CourierDemo.Receiver.serve/1` start only Bandit, not the courier application. `serve/1` takes `:ip`, `:port`, `:timeout_delay_ms` (else `COURIER_DEMO_TIMEOUT_MS`, else 35 000), `:retry_after`, `:tolerance_seconds` and `:secrets` (the agent's name, so tests can run several receivers). In development the URL policy allows `http` to `localhost`, `127.0.0.1` and `demo-receiver`; production does not unless `COURIER_ALLOW_HTTP` and `COURIER_ALLOWED_HOSTS` say so, as the Docker demo does for `demo-receiver`.
 
 ### Producer simulator
 
@@ -800,6 +800,29 @@ The endpoint name is the receiver's path segment, the name its secret is registe
 **Output.** The `demo` key's token (shown only here; courier stores its hash), the merchants' ids and names, the endpoints' ids and URLs, and a `mix courier.simulate` command with the token and a `--merchant` option per merchant, which can be run as printed.
 
 **Seeding once.** The `demo` key is created first and its name is unique: when it already exists (also when it was revoked, or when a concurrent run created it first), the seeds create nothing, print that the database is already seeded and exit normally, so `mix ecto.setup` on a seeded database does not fail. To seed again, run `mix ecto.reset`, which drops the database. No transaction wraps the rest, because creating an endpoint starts its Oban queue, which a rollback would not undo; a failure halfway leaves partial demo data, also fixed with `mix ecto.reset`.
+
+### Docker demo
+
+`docker compose up -d --build` builds one image, the production release (`Dockerfile`, generated by `mix phx.gen.release --docker`), and starts three services:
+
+| Service | What it runs | Reachable from the host |
+|---|---|---|
+| `postgres` | PostgreSQL 18 with the `courier` database | port 5432, or `COURIER_POSTGRES_PORT` |
+| `courier` | `bin/migrate`, then `bin/server` (API, workers and LiveDashboard) | <http://localhost:4000> |
+| `demo-receiver` | `bin/courier eval "CourierDemo.Receiver.serve(ip: {0, 0, 0, 0})"` | no: private network only |
+
+Both release services get the same environment, because a release evaluates `config/runtime.exs` whatever it runs; the receiver itself opens no database connection. Every value in `compose.yaml` is fixed and not secret (`SECRET_KEY_BASE`, `COURIER_ENCRYPTION_KEY`, `COURIER_ADMIN_TOKEN`), so the demo needs no setup; they must never be reused elsewhere. `COURIER_ALLOW_HTTP=true` and `COURIER_ALLOWED_HOSTS=demo-receiver` let endpoints point at the receiver, and `COURIER_DEMO_RECEIVER_URL=http://demo-receiver:4001` makes the seeds use it.
+
+A release has no Mix, so the seeds run inside the running node, and the simulator still runs from the host:
+
+```sh
+docker compose up -d --build
+docker compose exec courier bin/courier rpc 'IO.puts(CourierDemo.Seeds.report(CourierDemo.Seeds.run()))'
+mix courier.simulate --token ck_... --merchant <id>   # the command the seeds print
+docker compose logs -f demo-receiver                  # one line per webhook
+```
+
+Release commands for the seeds and the simulator, so the demo needs only Docker, are the next change (see `docs/roadmap.md`).
 
 ## Security notes
 

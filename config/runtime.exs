@@ -94,6 +94,25 @@ if config_env() == :prod do
 
   config :courier, Courier.Vault, key: encryption_key
 
+  # Endpoint URL policy (SSRF protection). Production keeps the strict
+  # defaults of config/config.exs: https only and no allowlisted hosts. The
+  # two variables below relax it and are meant for the local Docker demo only
+  # (compose.yaml), where the demo receiver is a plain-http service on the
+  # private network:
+  #
+  #   COURIER_ALLOW_HTTP=true                accepts http endpoint URLs
+  #   COURIER_ALLOWED_HOSTS=host-a,host-b    hosts exempt from the public-address check
+  allowed_hosts =
+    "COURIER_ALLOWED_HOSTS"
+    |> System.get_env("")
+    |> String.split(",", trim: true)
+    |> Enum.map(&String.trim/1)
+    |> Enum.reject(&(&1 == ""))
+
+  config :courier, Courier.Endpoints.URLPolicy,
+    require_https: System.get_env("COURIER_ALLOW_HTTP") not in ~w(true 1),
+    allowed_hosts: allowed_hosts
+
   host = System.get_env("PHX_HOST") || "example.com"
 
   config :courier, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")

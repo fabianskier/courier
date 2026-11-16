@@ -9,7 +9,7 @@ A reliable **webhook delivery engine** in Elixir, with a React + shadcn/ui dashb
 - Append-only audit trail of every attempt; manual resend that never rewrites history.
 - MCP server: read-only tools by default, a separate tool for resends.
 
-> **Status:** the backend works end to end: ingestion, signed delivery with retries and dead letters, manual resend, telemetry, and demo tools to see it all locally (see [Local demo](#local-demo)). The Docker image, the MCP server and the dashboard come next. See [docs/roadmap.md](docs/roadmap.md).
+> **Status:** the backend works end to end: ingestion, signed delivery with retries and dead letters, manual resend, telemetry, and demo tools to see it all locally (see [Local demo](#local-demo)). The MCP server and the dashboard come next. See [docs/roadmap.md](docs/roadmap.md).
 
 ## Local demo
 
@@ -83,6 +83,8 @@ curl -s -X POST -H "authorization: Bearer $TOKEN" \
 ```
 
 The resend answers `202` with a new delivery, linked to the old one by `resend_of_id` and with `triggered_by` set to `api_key:demo`; it succeeds on its first attempt. The failed delivery and its attempts stay as they were, and it now lists the new one under `resends`. Deliveries of `harbor-fail` that were still `pending` succeed on their next retry. A `pending` delivery cannot be resent (`409 delivery_in_progress`).
+
+**With Docker.** `docker compose up -d --build` starts courier, PostgreSQL and the demo receiver from one production release image, replacing steps 1 to 4; the seeds then run inside the container and the receiver's log is `docker compose logs -f demo-receiver`. See [Docker demo](docs/architecture.md#docker-demo) for the commands. Sending events still needs `mix courier.simulate` from the host until the release gets its own commands.
 
 ## Documentation
 
