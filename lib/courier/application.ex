@@ -21,6 +21,8 @@ defmodule Courier.Application do
       {Finch,
        name: Courier.Finch,
        pools: %{default: [size: 50, conn_opts: [transport_opts: [timeout: 5_000]]]}},
+      # Runs each webhook request so it can be killed at its total deadline.
+      {Task.Supervisor, name: Courier.Delivery.TaskSupervisor},
       {DNSCluster, query: Application.get_env(:courier, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Courier.PubSub},
       # Start a worker by calling: Courier.Worker.start_link(arg)

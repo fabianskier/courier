@@ -468,7 +468,7 @@ signature_header
 |> Enum.any?(fn "v1," <> sig -> Plug.Crypto.secure_compare(sig, expected); _ -> false end)
 ```
 
-**HTTP client** (`Courier.Delivery.Client`). Req with `retry: false` (Oban is the only layer that retries), redirects not followed, a 5 s connect timeout and a 15 s receive timeout. Requests go through the `Courier.Finch` pool, which keeps one pool of 50 connections per origin, as large as the largest allowed `max_concurrency`. The URL policy runs again before every request (see "Merchants and endpoints").
+**HTTP client** (`Courier.Delivery.Client`). Req with `retry: false` (Oban is the only layer that retries), redirects not followed, a 5 s connect timeout and a 15 s receive timeout. The response body is streamed and reading stops after its first 4096 bytes, which closes the connection, so a large body never sits in memory. Each request runs in a task under `Courier.Delivery.TaskSupervisor` with a total deadline of 30 s, from connect to the end of reading; a request still running at the deadline is killed and recorded as error `timeout` (retried), so a body that trickles in cannot hold a queue slot. Requests go through the `Courier.Finch` pool, which keeps one pool of 50 connections per origin, as large as the largest allowed `max_concurrency`. The URL policy runs again before every request (see "Merchants and endpoints").
 
 **Outcome of an attempt.**
 
