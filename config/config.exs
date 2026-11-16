@@ -12,12 +12,14 @@ config :courier,
   generators: [timestamp_type: :utc_datetime, binary_id: true]
 
 # Oban (open-source engine). Delivery queues are started per endpoint at runtime
-# (see docs/decisions.md); no static queues yet.
+# (see docs/decisions.md); the only static queue is `maintenance`.
 config :courier, Oban,
   engine: Oban.Engines.Basic,
   repo: Courier.Repo,
-  queues: [],
+  queues: [maintenance: 1],
   plugins: [
+    # Fail pending deliveries whose retry window ended (e.g. disabled endpoints).
+    {Oban.Plugins.Cron, crontab: [{"*/5 * * * *", Courier.Delivery.WindowSweeper}]},
     # Keep finished jobs for 7 days so their history can be inspected.
     {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 7},
     # Rescue jobs left "executing" after a crash or restart.
