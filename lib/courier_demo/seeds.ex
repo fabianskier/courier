@@ -4,8 +4,8 @@ defmodule CourierDemo.Seeds do
   point at the demo receiver's behaviours (`CourierDemo.Receiver`), one each.
 
   `run/1` creates the data through the public context functions and registers
-  each endpoint's signing secret with the receiver; `report/1` renders what
-  `priv/repo/seeds.exs` prints. Secrets go only to the receiver: they are never
+  each endpoint's signing secret with the receiver; `report/2` renders what
+  `priv/repo/seeds.exs` and the release's `bin/seed` print. Secrets go only to the receiver: they are never
   returned, printed or logged.
 
   Extra `Req` options for the registrations come from `config :courier,
@@ -147,18 +147,24 @@ defmodule CourierDemo.Seeds do
   @doc """
   Renders the result of `run/1` as the text the seeds script prints: the
   token (shown only here), the merchants, the endpoints, a warning for the
-  endpoints whose secret the receiver did not take, and a `mix courier.simulate`
-  command that can be run as printed. It never contains a signing secret.
+  endpoints whose secret the receiver did not take, and a simulator command
+  that can be run as printed. It never contains a signing secret.
+
+  `commands` is the kind of commands the text names: `:mix` (the default, for
+  `priv/repo/seeds.exs`) or `:release` (for the release's `bin/seed`, which
+  names the commands of the Docker Compose demo).
   """
-  @spec report({:ok, summary()} | {:error, :already_seeded}) :: String.t()
-  def report({:error, :already_seeded}) do
+  @spec report({:ok, summary()} | {:error, :already_seeded}, :mix | :release) :: String.t()
+  def report(result, commands \\ :mix)
+
+  def report({:error, :already_seeded}, commands) do
     """
     The database is already seeded (an API key named "#{@key_name}" exists): nothing was created.
-    To start again from an empty database, run: mix ecto.reset
+    #{reseed_hint(commands)}
     """
   end
 
-  def report({:ok, summary}) do
+  def report({:ok, summary}, commands) do
     merchant_options = Enum.map_join(summary.merchants, " ", &"--merchant #{&1.id}")
 
     """
@@ -172,13 +178,40 @@ defmodule CourierDemo.Seeds do
 
     Endpoints:
     #{lines(summary.endpoints, &"#{&1.id}  #{&1.url}")}
-    #{registration_note(summary)}
+    #{registration_note(summary, commands)}
     Send events with:
-      mix courier.simulate --token #{summary.token} #{merchant_options}
+      #{simulate_command(commands)} --token #{summary.token} #{merchant_options}
     """
   end
 
-  defp registration_note(summary) do
+  defp simulate_command(:mix), do: "mix courier.simulate"
+  defp simulate_command(:release), do: "docker compose exec courier bin/simulate"
+
+  defp reseed_hint(:mix), do: "To start again from an empty database, run: mix ecto.reset"
+
+  defp reseed_hint(:release) do
+    "To start again from an empty database, run:\n" <> lines(release_reseed_commands(), & &1)
+  end
+
+  defp receiver_hint(:mix) do
+    "Start the receiver (mix courier.demo.receiver) and run mix ecto.reset to seed again."
+  end
+
+  defp receiver_hint(:release) do
+    "Start the receiver (docker compose up -d demo-receiver) and seed again from an empty database:\n" <>
+      lines(release_reseed_commands(), & &1)
+  end
+
+  # `courier` is the service name in compose.yaml.
+  defp release_reseed_commands do
+    [
+      "docker compose down -v",
+      "docker compose up -d --build",
+      "docker compose exec courier bin/seed"
+    ]
+  end
+
+  defp registration_note(summary, commands) do
     case Enum.reject(summary.endpoints, & &1.registered) do
       [] ->
         "\nEvery endpoint's signing secret is registered with the receiver at #{summary.receiver_url}.\n"
@@ -189,7 +222,7 @@ defmodule CourierDemo.Seeds do
         WARNING: the receiver at #{summary.receiver_url} did not take the signing secret of:
         #{lines(unregistered, & &1.name)}
         Requests to these endpoints will be answered unchecked (signatures are not verified).
-        Start the receiver (mix courier.demo.receiver) and run mix ecto.reset to seed again.
+        #{receiver_hint(commands)}
         """
     end
   end

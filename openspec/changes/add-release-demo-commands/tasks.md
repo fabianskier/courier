@@ -8,7 +8,7 @@ Each task must stay within the gate's diff budget (about 600 changed lines, test
 
 ## 2. Seeds from the release
 
-- [ ] 2.1 Add `CourierDemo.Seeds.report/2` (`:mix` default, `:release`) and `CourierDemo.CLI.seed/0` as in design.md, and the executable `rel/overlays/bin/seed`; verify with new tests in `test/courier_demo/cli_seed_test.exs`: "Scenario: Release output ready to use", "Scenario: Release second run refused" and "Scenario: Release receiver unreachable", and that `test/courier_demo/seeds_test.exs` passes unchanged; then document `bin/seed` in the "Demo seeds" section of `docs/architecture.md`
+- [x] 2.1 Add `CourierDemo.Seeds.report/2` (`:mix` default, `:release`) and `CourierDemo.CLI.seed/0` as in design.md, and the executable `rel/overlays/bin/seed`; verify with new tests in `test/courier_demo/cli_seed_test.exs`: "Scenario: Release output ready to use", "Scenario: Release second run refused" and "Scenario: Release receiver unreachable", and that `test/courier_demo/seeds_test.exs` passes unchanged; then document `bin/seed` in the "Demo seeds" section of `docs/architecture.md`
 
 ## 3. Docker-only walkthrough
 

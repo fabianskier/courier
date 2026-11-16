@@ -786,7 +786,7 @@ The script runs `bin/courier eval 'System.halt(CourierDemo.CLI.simulate(System.a
 
 ### Demo seeds
 
-`priv/repo/seeds.exs` calls `CourierDemo.Seeds.run/1` and prints `CourierDemo.Seeds.report/1`. It runs with `mix run priv/repo/seeds.exs`, and as part of `mix ecto.setup` and `mix ecto.reset`. It creates, through the public context functions only (`Courier.Access`, `Courier.Merchants`, `Courier.Endpoints`, so URLs pass the URL policy and each endpoint's queue starts):
+`priv/repo/seeds.exs` calls `CourierDemo.Seeds.run/1` and prints `CourierDemo.Seeds.report/2`. It runs with `mix run priv/repo/seeds.exs`, and as part of `mix ecto.setup` and `mix ecto.reset`. It creates, through the public context functions only (`Courier.Access`, `Courier.Merchants`, `Courier.Endpoints`, so URLs pass the URL policy and each endpoint's queue starts):
 
 - an API key named `demo` with the scopes `ingest`, `read` and `write`;
 - three merchants with five enabled endpoints, one per receiver behaviour, at `<receiver URL>/hooks/<endpoint name>/<behaviour>`:
@@ -808,6 +808,20 @@ The endpoint name is the receiver's path segment, the name its secret is registe
 **Output.** The `demo` key's token (shown only here; courier stores its hash), the merchants' ids and names, the endpoints' ids and URLs, and a `mix courier.simulate` command with the token and a `--merchant` option per merchant, which can be run as printed.
 
 **Seeding once.** The `demo` key is created first and its name is unique: when it already exists (also when it was revoked, or when a concurrent run created it first), the seeds create nothing, print that the database is already seeded and exit normally, so `mix ecto.setup` on a seeded database does not fail. To seed again, run `mix ecto.reset`, which drops the database. No transaction wraps the rest, because creating an endpoint starts its Oban queue, which a rollback would not undo; a failure halfway leaves partial demo data, also fixed with `mix ecto.reset`.
+
+**From the release.** A release has no Mix, so it ships `bin/seed` (`rel/overlays/bin/seed`), which creates the same data, registers the secrets the same way and refuses to seed twice:
+
+```sh
+docker compose exec courier bin/seed
+```
+
+The script runs `bin/courier rpc 'CourierDemo.CLI.seed()'`: `rpc` evaluates in the running node, which already has the repo, the vault and the contexts, and prints to the caller's terminal. So the release must be running; `eval` would have to start a second Oban and endpoint next to the server. `seed/0` prints `CourierDemo.Seeds.report/2` with `:release` instead of the default `:mix`, which names the commands of the Docker demo, the release's only supported home for them:
+
+- the simulator command is `docker compose exec courier bin/simulate ...` (`courier` is the service name in `compose.yaml`);
+- an already seeded database is restarted with `docker compose down -v`, `docker compose up -d --build` and `docker compose exec courier bin/seed`;
+- an unreachable receiver is started with `docker compose up -d demo-receiver`, before seeding again from an empty database.
+
+The receiver URL comes from `COURIER_DEMO_RECEIVER_URL` in the release's environment.
 
 ### Docker demo
 

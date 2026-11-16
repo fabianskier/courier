@@ -6,9 +6,12 @@ defmodule CourierDemo.CLI do
 
   `simulate/1` is the release entry point. It needs no Mix and no running
   courier application, and returns the exit status instead of halting.
+
+  `seed/0` is the release entry point of the demo seeds (`bin/seed`). It runs
+  inside the running release.
   """
 
-  alias CourierDemo.Simulator
+  alias CourierDemo.{Seeds, Simulator}
 
   @switches [
     merchant: :keep,
@@ -106,6 +109,19 @@ defmodule CourierDemo.CLI do
         IO.puts(:stderr, "Usage: bin/simulate --merchant ID [--merchant ID...] [options]")
         1
     end
+  end
+
+  @doc """
+  The release entry point of the demo seeds (`bin/seed`).
+
+  Runs `CourierDemo.Seeds.run/1` in the running release, which has the repo,
+  the vault and the contexts, and prints the report with the commands of the
+  Docker Compose demo. A database that is already seeded is reported, not an
+  error.
+  """
+  @spec seed() :: :ok
+  def seed do
+    Seeds.run() |> Seeds.report(:release) |> IO.puts()
   end
 
   defp parse_types(nil), do: Simulator.default_types()
