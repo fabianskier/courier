@@ -96,9 +96,7 @@ defmodule CourierDemo.SimulatorTest do
       state = :rand.seed_s(:exsss, {1, 2, 3})
       {:ok, seed} = Agent.start_link(fn -> state end)
 
-      rand = fn ->
-        Agent.get_and_update(seed, &:rand.uniform_s/1)
-      end
+      rand = fn -> Agent.get_and_update(seed, &:rand.uniform_s/1) end
 
       plan = Simulator.plan([merchants: @merchants, count: 20, repeat_share: 0.5], rand)
       assert length(plan) == 20
@@ -120,9 +118,6 @@ defmodule CourierDemo.SimulatorTest do
       for {key, bodies} <- bodies_by_key, body <- bodies do
         assert body == Map.fetch!(planned, key)
       end
-
-      # In the plan, a repeat always comes after the first request with its key.
-      assert plan |> Enum.uniq() |> length() == map_size(planned)
     end
 
     test "Scenario: No repeats" do

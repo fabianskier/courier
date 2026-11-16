@@ -758,7 +758,7 @@ A missing or invalid option prints what is wrong and exits with status 1 before 
 
 **Repeats.** Each request after the first is a repeat with probability `--repeat-share`: a copy of a random earlier new request, with the same idempotency key and the same body byte for byte, so courier answers `200` with the original event instead of creating a second one. The first request is never a repeat, and `--repeat-share 0` sends only new events.
 
-**Pacing.** `CourierDemo.Simulator.run/2` sends request `i` no earlier than `i * 1000 / rate` ms after the start, so `--count 10 --rate 20` takes at least 450 ms. Requests are scheduled, not chained, with up to 20 in flight and no retries: an API slower than the rate lowers the effective rate, which the summary's elapsed time shows. Because requests overlap, a repeat can reach courier before the request it copies; then the repeat is answered `202` and the original `200`, and the totals stay the same.
+**Pacing.** `CourierDemo.Simulator.run/2` (extra `Req` options come from `config :courier, CourierDemo.Simulator, req_options: [...]`, which tests point at `Req.Test` stubs) sends request `i` no earlier than `i * 1000 / rate` ms after the start, so `--count 10 --rate 20` takes at least 450 ms. Requests are scheduled, not chained, with up to 20 in flight and no retries: an API slower than the rate lowers the effective rate, which the summary's elapsed time shows. Because requests overlap, a repeat can reach courier before the request it copies; then the repeat is answered `202` and the original `200`, and the totals stay the same.
 
 **Summary.** When the run ends the task prints how many requests were answered `202` (new), `200` (repeats), with any other status (one line per status) and how many got no response, and exits with status 0:
 
@@ -770,15 +770,11 @@ Sent 50 requests in 4.9 s:
   0 failed (no response)
 ```
 
-**Example.**
-
 ```sh
 export COURIER_INGEST_TOKEN=ck_...   # a key with the ingest scope
 mix courier.simulate --merchant <merchant id> --merchant <other merchant id> \
   --count 50 --rate 10 --repeat-share 0.2 --types payment.succeeded,refund.succeeded
 ```
-
-Extra `Req` options come from `config :courier, CourierDemo.Simulator, req_options: [...]`; the test environment uses it to send the requests to `Req.Test` stubs instead of the network.
 
 ## Security notes
 
