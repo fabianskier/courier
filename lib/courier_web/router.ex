@@ -22,7 +22,7 @@ defmodule CourierWeb.Router do
     resources "/endpoints", EndpointController, only: [:index, :show, :create, :update]
     post "/endpoints/:id/rotate_secret", EndpointController, :rotate_secret
 
-    post "/events", EventController, :create
+    resources "/events", EventController, only: [:index, :show, :create]
   end
 
   # Enable LiveDashboard in development

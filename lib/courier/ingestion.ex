@@ -15,6 +15,7 @@ defmodule Courier.Ingestion do
   alias Courier.Endpoints.{Endpoint, EventFilter}
   alias Courier.Ingestion.Event
   alias Courier.Merchants.Merchant
+  alias Courier.Pagination
   alias Courier.Repo
   alias Ecto.Multi
 
@@ -47,6 +48,58 @@ defmodule Courier.Ingestion do
           load_original(idempotency_key, request_hash(attrs))
       end
     end
+  end
+
+  @doc """
+  Lists events newest first, one page at a time (see `Courier.Pagination`).
+  With `merchant_id`, only that merchant's events (a malformed id matches
+  none); with `type`, only events of exactly that type. Deliveries are not
+  loaded.
+  """
+  @spec list_events(%{
+          required(:limit) => pos_integer(),
+          optional(:cursor) => String.t() | nil,
+          optional(:merchant_id) => String.t() | nil,
+          optional(:type) => String.t() | nil
+        }) :: {:ok, Pagination.page()} | {:error, :invalid_cursor}
+  def list_events(opts) when is_map(opts) do
+    Event
+    |> filter_by_merchant(Map.get(opts, :merchant_id))
+    |> filter_by_type(Map.get(opts, :type))
+    |> Pagination.paginate(Map.put(opts, :order, :desc))
+  end
+
+  @doc """
+  Returns the event with `id` and its deliveries (oldest first), or
+  `{:error, :not_found}` for unknown or malformed ids.
+  """
+  @spec get_event(term()) :: {:ok, Event.t()} | {:error, :not_found}
+  def get_event(id) do
+    with {:ok, uuid} <- Ecto.UUID.cast(id),
+         %Event{} = event <- Repo.get(Event, uuid) do
+      {:ok, preload_deliveries(event)}
+    else
+      _ -> {:error, :not_found}
+    end
+  end
+
+  defp filter_by_merchant(query, nil), do: query
+
+  defp filter_by_merchant(query, merchant_id) do
+    case Ecto.UUID.cast(merchant_id) do
+      {:ok, uuid} -> where(query, [e], e.merchant_id == ^uuid)
+      :error -> where(query, false)
+    end
+  end
+
+  defp filter_by_type(query, nil), do: query
+  defp filter_by_type(query, type) when is_binary(type), do: where(query, [e], e.type == ^type)
+  defp filter_by_type(query, _type), do: where(query, false)
+
+  defp preload_deliveries(event) do
+    Repo.preload(event,
+      deliveries: from(d in Delivery, order_by: [asc: d.inserted_at, asc: d.id])
+    )
   end
 
   @doc false
@@ -208,7 +261,7 @@ defmodule Courier.Ingestion do
     event =
       Event
       |> Repo.get_by!(idempotency_key: idempotency_key)
-      |> Repo.preload(deliveries: from(d in Delivery, order_by: [asc: d.inserted_at, asc: d.id]))
+      |> preload_deliveries()
 
     if event.request_hash == request_hash,
       do: {:ok, :repeat, event},
