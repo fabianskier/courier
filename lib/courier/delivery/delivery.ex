@@ -23,6 +23,7 @@ defmodule Courier.Delivery.Delivery do
     belongs_to :event, Courier.Ingestion.Event
     belongs_to :endpoint, Courier.Endpoints.Endpoint
     belongs_to :resend_of, __MODULE__
+    has_many :attempts, Courier.Audit.Attempt
 
     field :status, :string
     field :attempt_count, :integer, default: 0

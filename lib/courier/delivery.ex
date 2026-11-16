@@ -1,6 +1,6 @@
 defmodule Courier.Delivery do
   @moduledoc """
-  Records the outcome of delivery attempts.
+  Reads deliveries and records the outcome of delivery attempts.
 
   A delivery's status only moves forward, from `pending` to `succeeded` or
   `failed`. Every write locks the delivery row (`FOR UPDATE`) inside a short
@@ -16,6 +16,22 @@ defmodule Courier.Delivery do
 
   @type transition ::
           {:succeeded, DateTime.t()} | {:failed, DateTime.t()} | {:retry_at, DateTime.t()}
+
+  @doc """
+  Returns `{:ok, delivery}` with its attempts preloaded in `number` order, or
+  `{:error, :not_found}` for an unknown or malformed id.
+  """
+  @spec get_delivery(term()) :: {:ok, Delivery.t()} | {:error, :not_found}
+  def get_delivery(id) do
+    attempts = from a in Attempt, order_by: [asc: a.number]
+
+    with {:ok, uuid} <- Ecto.UUID.cast(id),
+         %Delivery{} = delivery <- Repo.get(Delivery, uuid) do
+      {:ok, Repo.preload(delivery, attempts: attempts)}
+    else
+      _ -> {:error, :not_found}
+    end
+  end
 
   @doc """
   Stores an attempt for a pending delivery and applies `transition` in one
