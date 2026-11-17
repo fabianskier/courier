@@ -56,5 +56,7 @@ Steps 1 to 8 give a complete backend that can be demoed with `curl`, the demo re
 
 - Step 7c, `add-release-demo-commands`: `bin/simulate` and `bin/seed` in the release (`rel/overlays/bin/`), backed by `CourierDemo.CLI`, which `mix courier.simulate` now shares; `bin/seed` prints Docker commands. The README has a walkthrough that needs only Docker. Documented in `docs/architecture.md` ("Producer simulator", "Demo seeds", "Docker demo").
 
+- Step 8, `add-mcp-server`: MCP over Streamable HTTP at `POST /mcp` with `anubis_mcp` 2.2 (`CourierMCP.Server`), behind the API's Bearer authentication and the `read` scope, with tools reading the key of the current request; six tools (`get_event`, `get_delivery`, `list_deliveries`, `list_failed_deliveries`, `get_endpoint_health` marked read-only, and `resend_delivery`, which checks the `write` scope itself and resends with the actor `api_key:<key name>`); payloads and response bodies returned truncated inside an untrusted-data wrapper; one `info` log line per tool call through `CourierMCP.Call` (tool, key name, arguments, status, duration; never tokens, payloads or bodies); and `Courier.Delivery.list_deliveries/1` and `count_by_status/1`, which the dashboard will reuse. Documented in `docs/architecture.md` ("MCP server") and in the README ("Use it from Claude Code").
+
 **Next:**
-1. Propose OpenSpec change `add-mcp-server` (step 8, FR-29 to FR-32).
+1. Step 9, frontend bootstrap: Vite + React + TypeScript strict, TanStack Router and Query, Tailwind, `shadcn init`, build into `priv/static`, dev proxy, and the frontend checks in `.smelt/checks.sh` and `.smelt/gate.json`.

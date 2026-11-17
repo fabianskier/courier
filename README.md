@@ -9,7 +9,7 @@ A reliable **webhook delivery engine** in Elixir, with a React + shadcn/ui dashb
 - Append-only audit trail of every attempt; manual resend that never rewrites history.
 - MCP server: read-only tools by default, a separate tool for resends.
 
-> **Status:** the backend works end to end: ingestion, signed delivery with retries and dead letters, manual resend, telemetry, and demo tools to see it all locally (see [Local demo](#local-demo)). The MCP server and the dashboard come next. See [docs/roadmap.md](docs/roadmap.md).
+> **Status:** the backend works end to end: ingestion, signed delivery with retries and dead letters, manual resend, telemetry, demo tools to see it all locally (see [Local demo](#local-demo)), and an MCP server for AI agents (see [Use it from Claude Code](#use-it-from-claude-code)). The dashboard comes next. See [docs/roadmap.md](docs/roadmap.md).
 
 ## Local demo
 
@@ -94,6 +94,28 @@ docker compose logs -f demo-receiver         # one line per webhook, with signat
 ```
 
 The API is at <http://localhost:4000>. The dashboard (step 7) is at <http://localhost:4000/admin/dashboard>: any user name, and the password is `COURIER_ADMIN_TOKEN` in `compose.yaml` (`courier-demo-admin-token-not-a-secret`). For the resend (step 8), use `http://demo-receiver:4001/hooks/harbor-fail/ok` as the endpoint's URL, because the receiver is only reachable inside Compose. To start again from an empty database, run `docker compose down -v` first. See [Docker demo](docs/architecture.md#docker-demo) for how it is built.
+
+## Use it from Claude Code
+
+courier serves MCP at `/mcp`, so an agent can answer "why did this webhook fail?" with the same data and rules as the API. Connect Claude Code with a key that has `read` (and `write` to allow resends), such as the `demo` key from the seeds:
+
+```sh
+claude mcp add --transport http courier http://localhost:4000/mcp \
+  --header "Authorization: Bearer ck_..."
+```
+
+Then ask in plain language. One example per tool:
+
+| Tool | Example question |
+|---|---|
+| `get_event` | "Show me event `<event id>` and the state of each of its deliveries." |
+| `get_delivery` | "Why did delivery `<delivery id>` fail? Walk me through its attempts." |
+| `list_deliveries` | "List the pending deliveries of endpoint `<endpoint id>`, newest first." |
+| `list_failed_deliveries` | "Which deliveries have failed for good? Group them by endpoint." |
+| `get_endpoint_health` | "Is endpoint `<endpoint id>` degraded? How many of its deliveries are failed or pending?" |
+| `resend_delivery` | "The endpoint is fixed now: resend delivery `<delivery id>`." |
+
+Read tools never change anything; `resend_delivery` needs a `write` key and creates a new delivery without touching the old one. Payloads and response bodies are handed to the agent as untrusted data, and every call is logged with the key's name. Details in [MCP server](docs/architecture.md#mcp-server).
 
 ## Documentation
 
