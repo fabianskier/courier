@@ -12,7 +12,7 @@ Each task must stay within the gate's diff budget (about 600 changed lines, test
 
 ## 3. Docker-only walkthrough
 
-- [ ] 3.1 Replace the README's "With Docker" paragraph with a short walkthrough that needs only Docker (`docker compose up -d --build`, `docker compose exec courier bin/seed`, the printed `docker compose exec courier bin/simulate` command, `docker compose logs -f demo-receiver`, the dashboard password from `compose.yaml`, and `http://demo-receiver:4001/hooks/harbor-fail/ok` as the URL for the resend step), update the commands in "Docker demo" of `docs/architecture.md`, and mark step 7c done in `docs/roadmap.md` with `add-mcp-server` as next; verify `mix precommit`, `sh .smelt/checks.sh` and `openspec validate add-release-demo-commands --strict` pass and every scenario in `specs/` has a test with the same name
+- [x] 3.1 Replace the README's "With Docker" paragraph with a short walkthrough that needs only Docker (`docker compose up -d --build`, `docker compose exec courier bin/seed`, the printed `docker compose exec courier bin/simulate` command, `docker compose logs -f demo-receiver`, the dashboard password from `compose.yaml`, and `http://demo-receiver:4001/hooks/harbor-fail/ok` as the URL for the resend step), update the commands in "Docker demo" of `docs/architecture.md`, and mark step 7c done in `docs/roadmap.md` with `add-mcp-server` as next; verify `mix precommit`, `sh .smelt/checks.sh` and `openspec validate add-release-demo-commands --strict` pass and every scenario in `specs/` has a test with the same name
 
 ## Workflow follow-up
 

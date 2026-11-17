@@ -84,7 +84,16 @@ curl -s -X POST -H "authorization: Bearer $TOKEN" \
 
 The resend answers `202` with a new delivery, linked to the old one by `resend_of_id` and with `triggered_by` set to `api_key:demo`; it succeeds on its first attempt. The failed delivery and its attempts stay as they were, and it now lists the new one under `resends`. Deliveries of `harbor-fail` that were still `pending` succeed on their next retry. A `pending` delivery cannot be resent (`409 delivery_in_progress`).
 
-**With Docker.** `docker compose up -d --build` starts courier, PostgreSQL and the demo receiver from one production release image, replacing steps 1 to 4; the seeds then run inside the container and the receiver's log is `docker compose logs -f demo-receiver`. See [Docker demo](docs/architecture.md#docker-demo) for the commands. Sending events still needs `mix courier.simulate` from the host until the release gets its own commands.
+**With Docker.** Only Docker is needed; this replaces steps 1 to 4.
+
+```sh
+docker compose up -d --build                 # courier, PostgreSQL and the demo receiver
+docker compose exec courier bin/seed         # creates the demo data and prints the next command
+docker compose exec courier bin/simulate ... # run the command that bin/seed printed, as printed
+docker compose logs -f demo-receiver         # one line per webhook, with signature=valid
+```
+
+The API is at <http://localhost:4000>. The dashboard (step 7) is at <http://localhost:4000/admin/dashboard>: any user name, and the password is `COURIER_ADMIN_TOKEN` in `compose.yaml` (`courier-demo-admin-token-not-a-secret`). For the resend (step 8), use `http://demo-receiver:4001/hooks/harbor-fail/ok` as the endpoint's URL, because the receiver is only reachable inside Compose. To start again from an empty database, run `docker compose down -v` first. See [Docker demo](docs/architecture.md#docker-demo) for how it is built.
 
 ## Documentation
 

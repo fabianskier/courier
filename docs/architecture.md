@@ -835,16 +835,15 @@ The receiver URL comes from `COURIER_DEMO_RECEIVER_URL` in the release's environ
 
 Both release services get the same environment, because a release evaluates `config/runtime.exs` whatever it runs; the receiver itself opens no database connection. Every value in `compose.yaml` is fixed and not secret (`SECRET_KEY_BASE`, `COURIER_ENCRYPTION_KEY`, `COURIER_ADMIN_TOKEN`), so the demo needs no setup; they must never be reused elsewhere. `COURIER_ALLOW_HTTP=true` and `COURIER_ALLOWED_HOSTS=demo-receiver` let endpoints point at the receiver, and `COURIER_DEMO_RECEIVER_URL=http://demo-receiver:4001` makes the seeds use it.
 
-A release has no Mix, so the seeds run inside the running node, and the simulator still runs from the host:
+A release has no Mix, so the seeds and the simulator run as release commands inside the running `courier` container, and the demo needs only Docker:
 
 ```sh
 docker compose up -d --build
-docker compose exec courier bin/courier rpc 'IO.puts(CourierDemo.Seeds.report(CourierDemo.Seeds.run()))'
-mix courier.simulate --token ck_... --merchant <id>   # the command the seeds print
+docker compose exec courier bin/seed                  # prints the simulator command below
+docker compose exec courier bin/simulate --token ck_... --merchant <id>
 docker compose logs -f demo-receiver                  # one line per webhook
+docker compose down -v                                # start again from an empty database
 ```
-
-Release commands for the seeds and the simulator, so the demo needs only Docker, are the next change (see `docs/roadmap.md`).
 
 ## Security notes
 
