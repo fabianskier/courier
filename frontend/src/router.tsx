@@ -20,6 +20,8 @@ export function createAppRouter(queryClient: QueryClient, history?: RouterHistor
   })
 }
 
+export type AppRouter = ReturnType<typeof createAppRouter>
+
 export function createAppQueryClient() {
   return new QueryClient({
     defaultOptions: {

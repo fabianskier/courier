@@ -9,7 +9,7 @@ Each task must stay within the gate's diff budget (about 600 changed lines and 2
 
 ## 2. Sign-in
 
-- [ ] 2.1 Add `src/lib/api/` (client, types, query keys), `src/lib/session.ts`, `src/features/auth/`, the `/sign-in` route, the `_app` layout route (guard, navigation, key name and scopes, sign-out), the `401` handling in `main.tsx`, and the "Sign in" link on the overview; add `tests/support/server.ts`, `tests/support/fixtures.ts` and `tests/support/session.ts` as in design.md; verify with `frontend/tests/dashboard-access.test.tsx` covering every scenario of `specs/dashboard-access/spec.md`, and check that the bootstrap tests in `frontend/tests/app.test.tsx` still pass unchanged
+- [x] 2.1 Add `src/lib/api/` (client, types, query keys), `src/lib/session.ts`, `src/features/auth/`, the `/sign-in` route, the `_app` layout route (guard, navigation, key name and scopes, sign-out), the `401` handling in `main.tsx`, and the "Sign in" link on the overview; add `tests/support/server.ts`, `tests/support/fixtures.ts` and `tests/support/session.ts` as in design.md; verify with `frontend/tests/dashboard-access.test.tsx` covering every scenario of `specs/dashboard-access/spec.md`, and check that the bootstrap tests in `frontend/tests/app.test.tsx` still pass unchanged
 
 ## 3. Lists
 
