@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
-import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field'
+import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { ApiError, apiFetch } from '@/lib/api/client'
 import { queryKeys } from '@/lib/api/query-keys'
@@ -26,19 +26,16 @@ export function SignInForm({ redirect }: { redirect?: string }) {
   const [failure, setFailure] = useState<string | null>(null)
   const form = useForm<Values>({ resolver: zodResolver(schema), defaultValues: { key: '' } })
 
+  // Checked with the candidate key; only a `200` stores it.
   async function onSubmit({ key }: Values) {
     setFailure(null)
-    let me: Me
     try {
-      // Checked with the candidate key; only a `200` stores it.
-      me = await apiFetch<Me>('/me', { key })
+      queryClient.setQueryData(queryKeys.me, await apiFetch<Me>('/me', { key }))
     } catch (error) {
-      const rejected = error instanceof ApiError && (error.status === 401 || error.status === 403)
-      setFailure(rejected ? 'This key was not accepted.' : 'Courier could not be reached.')
-      return
+      const rejected = error instanceof ApiError && error.status === 401
+      return setFailure(rejected ? 'This key was not accepted.' : 'Courier could not be reached.')
     }
     writeKey(key)
-    queryClient.setQueryData(queryKeys.me, me)
     await router.navigate({ href: safeRedirect(redirect) })
   }
 
@@ -61,9 +58,6 @@ export function SignInForm({ redirect }: { redirect?: string }) {
             aria-invalid={keyError ? true : undefined}
             {...form.register('key')}
           />
-          <FieldDescription>
-            Kept for this browser session only and sent to courier's API.
-          </FieldDescription>
           <FieldError errors={[keyError]} />
         </Field>
         <Button type="submit" disabled={form.formState.isSubmitting} className="w-fit">

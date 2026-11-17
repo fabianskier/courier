@@ -20,13 +20,7 @@ export function useMe() {
 }
 
 // Only same-app paths are followed after sign-in, never another origin.
-export function safeRedirect(value: string | undefined): string {
-  if (!value || !value.startsWith('/') || value.startsWith('//') || value.startsWith('/\\')) {
-    return '/'
-  }
-  if (value === '/sign-in' || value.startsWith('/sign-in?')) return '/'
-  return value
-}
+export const safeRedirect = (value = '') => (/^\/(?![/\\]|sign-in)/.test(value) ? value : '/')
 
 // The cache is cleared once the data pages are gone, so none of them refetches.
 export async function signOut(router: AppRouter, queryClient: QueryClient) {

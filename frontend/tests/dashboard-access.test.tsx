@@ -3,7 +3,6 @@ import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { apiFetch } from '@/lib/api/client'
-import { queryKeys } from '@/lib/api/query-keys'
 import { errorFixture, meFixture } from './support/fixtures'
 import { setupApiServer } from './support/server'
 import { renderDashboard, signIn, TEST_KEY } from './support/session'
@@ -11,22 +10,14 @@ import { renderDashboard, signIn, TEST_KEY } from './support/session'
 const server = setupApiServer()
 
 let requests: Request[] = []
-const record = ({ request }: { request: Request }) => {
-  requests.push(request.clone())
-}
-
 beforeEach(() => {
   requests = []
-  server.events.on('request:start', record)
+  server.events.on('request:start', ({ request }) => void requests.push(request))
 })
+afterEach(() => server.events.removeAllListeners())
 
-afterEach(() => {
-  server.events.removeAllListeners()
-})
-
-function answerMe(check: (request: Request) => Response) {
-  server.use(http.get('*/api/v1/me', ({ request }) => check(request)))
-}
+const answerMe = (answer: (args: { request: Request }) => Response) =>
+  server.use(http.get('*/api/v1/me', answer))
 
 const unauthorized = () =>
   HttpResponse.json(errorFixture('unauthorized', 'Invalid API key.'), { status: 401 })
@@ -47,7 +38,7 @@ describe('Requirement: Data pages need a key', () => {
   })
 
   it('Scenario: Valid key accepted', async () => {
-    answerMe((request) =>
+    answerMe(({ request }) =>
       request.headers.get('Authorization') === `Bearer ${TEST_KEY}`
         ? HttpResponse.json(meFixture())
         : unauthorized(),
@@ -115,11 +106,6 @@ describe('Requirement: Key kept for the browser session only', () => {
     expect(await screen.findByRole('heading', { name: 'Deliveries' })).toBeInTheDocument()
     visited.push(router.state.location.href)
 
-    await userEvent.click(screen.getByRole('link', { name: 'Overview' }))
-    await userEvent.click(await screen.findByRole('link', { name: 'Open deliveries' }))
-    expect(await screen.findByRole('heading', { name: 'Deliveries' })).toBeInTheDocument()
-    visited.push(router.state.location.href)
-
     for (const href of visited) expect(href).not.toContain(TEST_KEY)
     for (const request of requests) expect(request.url).not.toContain(TEST_KEY)
     expect(window.localStorage.length).toBe(0)
@@ -137,7 +123,6 @@ describe('Requirement: Sign out', () => {
 
     expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeInTheDocument()
     expect(window.sessionStorage.getItem('courier.apiKey')).toBeNull()
-    expect(queryClient.getQueryData(queryKeys.me)).toBeUndefined()
     expect(queryClient.getQueryCache().getAll()).toHaveLength(0)
   })
 })

@@ -4,22 +4,17 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { meQueryOptions, signOut, useMe } from '@/features/auth/session'
 import { ApiError } from '@/lib/api/client'
-import { hasKey } from '@/lib/session'
+import { readKey } from '@/lib/session'
 
 // Every page with courier data: needs a stored key that `/me` accepts.
 export const Route = createFileRoute('/_app')({
   beforeLoad: async ({ context, location }) => {
-    if (!hasKey()) {
-      throw redirect({ to: '/sign-in', search: { redirect: location.href } })
-    }
-    try {
-      await context.queryClient.ensureQueryData(meQueryOptions())
-    } catch (error) {
-      if (error instanceof ApiError && error.status === 401) {
-        throw redirect({ to: '/sign-in', search: { reason: 'expired', redirect: location.href } })
-      }
-      throw error
-    }
+    const search = { redirect: location.href }
+    if (!readKey()) throw redirect({ to: '/sign-in', search })
+    await context.queryClient.ensureQueryData(meQueryOptions()).catch((error: unknown) => {
+      if (!(error instanceof ApiError) || error.status !== 401) throw error
+      throw redirect({ to: '/sign-in', search: { ...search, reason: 'expired' } })
+    })
   },
   component: AppLayout,
 })

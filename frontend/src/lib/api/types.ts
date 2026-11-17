@@ -10,9 +10,3 @@ export interface Me {
 export interface ApiErrorBody {
   error: { code: string; message: string }
 }
-
-// Paginated lists: `{"data": [...], "next_cursor": ...}`.
-export interface Page<T> {
-  data: T[]
-  next_cursor: string | null
-}
