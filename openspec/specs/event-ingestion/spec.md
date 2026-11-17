@@ -116,7 +116,7 @@ The system SHALL store an event, all its deliveries and one delivery job per pen
 - **THEN** neither the event, its deliveries nor any job is stored
 
 ### Requirement: Read events
-The system SHALL let a key with the `read` scope list events newest first with pagination, optionally filtered by `merchant_id` and exact `type`, and show one event with its deliveries. An unknown or malformed id MUST get `404`. An event's deliveries MUST be listed in the same order in every response (the ingestion response, a repeat and a read): by endpoint creation, then by delivery creation.
+The system SHALL let a `read` key list events newest first with pagination, filtered by `merchant_id`, exact `type` and received time (`since` inclusive, `until` exclusive, ISO 8601 with offset; otherwise `422 invalid`), and show one event with its deliveries (`404` for an unknown or malformed id). An event's deliveries MUST be listed in the same order in every response: by endpoint creation, then by delivery creation.
 
 #### Scenario: List and filter events
 - **WHEN** an operator lists events with `merchant_id` and `type=payment.succeeded`
@@ -133,3 +133,11 @@ The system SHALL let a key with the `read` scope list events newest first with p
 #### Scenario: Stable delivery order
 - **WHEN** an event fans out to three endpoints and is then read back
 - **THEN** the ingestion response and the read list the deliveries in the endpoints' creation order
+
+#### Scenario: Events in a time range
+- **WHEN** events were received at 10:00, 11:00 and 12:00 and an operator lists events with `since` 10:30 and `until` 12:00
+- **THEN** only the event received at 11:00 is returned
+
+#### Scenario: Invalid time range rejected
+- **WHEN** an operator lists events with `since=yesterday`
+- **THEN** the response is `422` with code `invalid`
