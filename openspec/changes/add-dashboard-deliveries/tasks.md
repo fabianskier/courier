@@ -23,7 +23,7 @@ Each task must stay within the gate's diff budget (about 800 changed lines and 2
 
 ## 5. Docs
 
-- [ ] 5.1 Update `docs/architecture.md` ("Dashboard SPA": routes, sign-in, API client, lists, resend; the new `GET /api/v1/deliveries` in "API surface" and the time range of `GET /api/v1/events`), add a dashboard step to the README walkthroughs (open <http://localhost:4000>, sign in with the `demo` key, open "Failed", resend), and mark step 10 done in `docs/roadmap.md` with step 11 next; verify `sh .smelt/checks.sh` and `openspec validate add-dashboard-deliveries --strict` pass and every scenario in `specs/` has a test with the same name
+- [x] 5.1 Update `docs/architecture.md` ("Dashboard SPA": routes, sign-in, API client, lists, resend; the new `GET /api/v1/deliveries` in "API surface" and the time range of `GET /api/v1/events`), add a dashboard step to the README walkthroughs (open <http://localhost:4000>, sign in with the `demo` key, open "Failed", resend), and mark step 10 done in `docs/roadmap.md` with step 11 next; verify `sh .smelt/checks.sh` and `openspec validate add-dashboard-deliveries --strict` pass and every scenario in `specs/` has a test with the same name
 
 ## Workflow follow-up
 

@@ -84,6 +84,22 @@ Phoenix serves `assets/`, `favicon.ico` and `robots.txt` with `Plug.Static`, and
 
 `frontend/` checks, also in `.smelt/checks.sh`: `npm run format:check` (oxfmt), `npm run lint` (oxlint, warnings fail), `npm run typecheck` (`tsc -b`) and `npm run test` (Vitest); `npm run check` runs all four.
 
+**Routes** (file routes in `src/routes/`). `/sign-in` and the overview `/` are public; every other page sits under the pathless layout route `_app`, whose `beforeLoad` redirects to `/sign-in?redirect=<path>` when no key is stored and loads `GET /api/v1/me` (cached) so the layout can show the key's name and scopes, the navigation (Overview, Events, Deliveries, Failed) and sign-out.
+
+| Route | Page |
+|---|---|
+| `/events` | Events list: filters merchant, type and time range (in the URL search params, validated with Zod), "Load more" over the cursor |
+| `/events/$eventId` | Event with its payload and deliveries |
+| `/deliveries` | Deliveries list: filters status, merchant, endpoint, event type and time range |
+| `/failed` | The deliveries list with `status=failed` fixed |
+| `/deliveries/$deliveryId` | Delivery summary, attempt timeline (time, duration, status code, error, response body cut at 500 characters), links to the delivery it resends and to its resends, and the resend button |
+
+**Sign-in.** The form checks the key with `GET /api/v1/me`; only a `200` stores it, in `sessionStorage` under `courier.apiKey` (as the API keys ADR decides), and sign-out removes it. A `401` on any later request clears the key and the query cache and goes back to `/sign-in?reason=expired&redirect=<path>`.
+
+**API client** (`src/lib/api/`). `apiFetch` adds the `Authorization: Bearer` header from the session, builds the query string from defined values only and throws `ApiError { status, code, message }` from the API's error shape (`status: 0` for a network failure). Types are written by hand from the JSON views; query keys live in one file. Merchant names and endpoint URLs come from one cached `GET /merchants?limit=100` and one `GET /endpoints?limit=100`, so lists need no request per row; an id not found there is shown shortened.
+
+**Lists and resend.** Lists are `useInfiniteQuery` over `next_cursor`, with a time range typed in the operator's time zone and sent as UTC. A resend button appears on `succeeded` and `failed` deliveries and is disabled for keys without the `write` scope. It asks for confirmation naming the endpoint, calls `POST /api/v1/deliveries/:id/resend`, and on success shows a toast and opens the new delivery; on an error (`409`, `422 endpoint_disabled`) the dialog shows the API's message. Lists refresh on navigation and on demand; live updates come with step 12. API text (payloads, bodies, errors) is always rendered as text.
+
 ## Code layout (proposed)
 
 ```text
@@ -274,7 +290,7 @@ Key constraints:
 |---|---|---|
 | `POST /api/v1/events` | ingest | Ingest an event (FR-1 to FR-5) |
 | `GET /api/v1/events`, `GET /api/v1/events/:id` | read | List and show events |
-| `GET /api/v1/deliveries`, `GET /api/v1/deliveries/:id` | read | List (filters, cursor) and show with attempts |
+| `GET /api/v1/deliveries`, `GET /api/v1/deliveries/:id` | read | List (filters, time range, cursor) and show with attempts |
 | `POST /api/v1/deliveries/:id/resend` | write | Manual resend (FR-21 to FR-23) |
 | `GET/POST/PATCH /api/v1/merchants[/:id]` | read / write | Merchants |
 | `GET/POST/PATCH /api/v1/endpoints[/:id]`, `POST /api/v1/endpoints/:id/rotate_secret` | read / write | Endpoints, filters, secrets |
@@ -429,7 +445,7 @@ The same transaction also inserts one Oban job per pending delivery, in the endp
 
 **Reading events.** Needs the `read` scope.
 
-- `GET /api/v1/events` lists events **newest first** with the same `limit`/`cursor` pagination as other lists (keyset on `(inserted_at, id)` descending). Filters: `merchant_id` (a malformed id returns an empty page) and `type` (exact match, no wildcards). Items do not include deliveries.
+- `GET /api/v1/events` lists events **newest first** with the same `limit`/`cursor` pagination as other lists (keyset on `(inserted_at, id)` descending). Filters: `merchant_id` (a malformed id returns an empty page), `type` (exact match, no wildcards) and a time range on the received time, `since` (inclusive) and `until` (exclusive), ISO 8601 with an offset (a malformed value returns `422 invalid`). Items do not include deliveries.
 - `GET /api/v1/events/:id` returns the event with its deliveries (`id`, `endpoint_id`, `status`, `window_ends_at`, `resend_of_id`), resends included (see "Manual resend"). An unknown or malformed id returns `404 not_found`.
 
 The idempotency key and request hash are stored but never returned.
@@ -507,7 +523,13 @@ A delivery's status only moves forward, from `pending` to `succeeded` or `failed
 
 **Window sweeper** (`Courier.Delivery.WindowSweeper`). A delivery normally reaches a terminal state in its own job, but the job of a disabled endpoint never runs (its queue is stopped), and a job can be lost. `Oban.Plugins.Cron` therefore runs the sweeper every 5 minutes (`*/5 * * * *`) in `maintenance`, the only static Oban queue (limit 1). Each run takes up to 500 `pending` deliveries with `window_ends_at <= now`, oldest first, cancels their delivery jobs (`Oban.cancel_all_jobs/1`, matched by the `delivery_id` job argument) and marks each one `failed` with `completed_at` set and **no attempt** (`Courier.Delivery.fail_without_attempt/2`). Jobs are cancelled first, so a run that crashes in between leaves the deliveries `pending` for the next run. A full batch makes the sweeper insert itself again to continue at once. Pending deliveries inside their window and terminal deliveries are never touched. A delivery failed by the sweeper stays failed even if its endpoint is enabled again later; a resend is the way to deliver it.
 
-**Reading a delivery.** `GET /api/v1/deliveries/:id` needs the `read` scope and returns the delivery with its resend links (`resend_of_id`, `triggered_by` and `resends`, see "Manual resend") and its attempts in order. Request headers are never returned. An unknown or malformed id returns `404 not_found`.
+**Listing deliveries.** `GET /api/v1/deliveries` needs the `read` scope and lists deliveries **newest first** with the same `limit`/`cursor` pagination (keyset on `(inserted_at, id)`, backed by an index). Filters: `status` (`pending`, `succeeded`, `failed` or `skipped`), `merchant_id`, `endpoint_id`, `event_id`, `event_type` (exact match) and `since` (inclusive) / `until` (exclusive) on the creation time. A malformed id matches nothing; an unknown `status` or a bad time returns `422 invalid`. Each item carries `event_type` and `merchant_id` from its event, so a list needs no request per row.
+
+```sh
+curl -s "http://localhost:4000/api/v1/deliveries?status=failed&merchant_id=<id>&since=2026-11-15T00:00:00Z" -H "Authorization: Bearer $COURIER_TOKEN"
+```
+
+**Reading a delivery.** `GET /api/v1/deliveries/:id` needs the `read` scope and returns the delivery with `inserted_at`, `event_type` and `merchant_id`, its resend links (`resend_of_id`, `triggered_by` and `resends`, see "Manual resend") and its attempts in order. Request headers are never returned. An unknown or malformed id returns `404 not_found`.
 
 ```sh
 curl -s http://localhost:4000/api/v1/deliveries/<delivery_id> -H "Authorization: Bearer $COURIER_TOKEN"
