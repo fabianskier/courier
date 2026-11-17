@@ -15,6 +15,7 @@ defmodule Courier.Delivery do
   alias Courier.Delivery.Delivery
   alias Courier.Delivery.{Queues, Worker}
   alias Courier.Endpoints.Endpoint
+  alias Courier.Pagination
   alias Courier.Repo
   alias Courier.Telemetry
 
@@ -44,6 +45,88 @@ defmodule Courier.Delivery do
     else
       _ -> {:error, :not_found}
     end
+  end
+
+  @default_list_limit 20
+
+  @doc """
+  Lists deliveries newest first (`inserted_at`, then `id`), without attempts.
+
+  `opts` may hold the filters `:status`, `:endpoint_id` and `:event_id` (a nil
+  or missing filter is not applied; an id that is not a UUID matches nothing),
+  `:limit` (default #{@default_list_limit}) and `:cursor`, the `next_cursor`
+  of a previous page.
+
+  Returns `{:ok, %{items: deliveries, next_cursor: cursor_or_nil}}` or
+  `{:error, :invalid_cursor}`.
+  """
+  @spec list_deliveries(%{
+          optional(:status) => String.t() | nil,
+          optional(:endpoint_id) => term(),
+          optional(:event_id) => term(),
+          optional(:limit) => pos_integer() | nil,
+          optional(:cursor) => String.t() | nil
+        }) :: {:ok, Pagination.page()} | {:error, :invalid_cursor}
+  def list_deliveries(opts) when is_map(opts) do
+    page_opts = %{
+      limit: Map.get(opts, :limit) || @default_list_limit,
+      cursor: Map.get(opts, :cursor),
+      order: :desc
+    }
+
+    Delivery
+    |> filter_status(Map.get(opts, :status))
+    |> filter_id(:endpoint_id, Map.get(opts, :endpoint_id))
+    |> filter_id(:event_id, Map.get(opts, :event_id))
+    |> Pagination.paginate(page_opts)
+  end
+
+  defp filter_status(query, nil), do: query
+  defp filter_status(query, status) when is_binary(status), do: where(query, status: ^status)
+  defp filter_status(query, _status), do: where(query, false)
+
+  defp filter_id(query, _field, nil), do: query
+
+  defp filter_id(query, field, id) do
+    case Ecto.UUID.cast(id) do
+      {:ok, uuid} -> where(query, [d], field(d, ^field) == ^uuid)
+      :error -> where(query, false)
+    end
+  end
+
+  @doc """
+  Returns the number of deliveries of an endpoint for each status, as
+  `%{pending: n, succeeded: n, failed: n, skipped: n}`. Every count is zero
+  for an unknown or malformed endpoint id.
+  """
+  @spec count_by_status(term()) :: %{
+          pending: non_neg_integer(),
+          succeeded: non_neg_integer(),
+          failed: non_neg_integer(),
+          skipped: non_neg_integer()
+        }
+  def count_by_status(endpoint_id) do
+    counts =
+      case Ecto.UUID.cast(endpoint_id) do
+        {:ok, uuid} ->
+          query =
+            from d in Delivery,
+              where: d.endpoint_id == ^uuid,
+              group_by: d.status,
+              select: {d.status, count(d.id)}
+
+          query |> Repo.all() |> Map.new()
+
+        :error ->
+          %{}
+      end
+
+    %{
+      pending: Map.get(counts, "pending", 0),
+      succeeded: Map.get(counts, "succeeded", 0),
+      failed: Map.get(counts, "failed", 0),
+      skipped: Map.get(counts, "skipped", 0)
+    }
   end
 
   @doc """
