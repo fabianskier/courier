@@ -54,6 +54,12 @@ defmodule CourierMCP.Views do
     %{deliveries: Enum.map(items, &delivery_summary/1), next_cursor: next_cursor}
   end
 
+  @doc "A new resend, without attempts, and the id of the delivery it resends."
+  @spec resend(Delivery.t()) :: map()
+  def resend(%Delivery{} = resend) do
+    %{delivery: delivery_summary(resend), resend_of_id: resend.resend_of_id}
+  end
+
   defp delivery_summary(%Delivery{} = delivery) do
     %{
       id: delivery.id,
