@@ -95,6 +95,18 @@ docker compose logs -f demo-receiver         # one line per webhook, with signat
 
 The API is at <http://localhost:4000>. The dashboard (step 7) is at <http://localhost:4000/admin/dashboard>: any user name, and the password is `COURIER_ADMIN_TOKEN` in `compose.yaml` (`courier-demo-admin-token-not-a-secret`). For the resend (step 8), use `http://demo-receiver:4001/hooks/harbor-fail/ok` as the endpoint's URL, because the receiver is only reachable inside Compose. To start again from an empty database, run `docker compose down -v` first. See [Docker demo](docs/architecture.md#docker-demo) for how it is built.
 
+## Dashboard development
+
+The dashboard is a React SPA in `frontend/` (see [Dashboard SPA](docs/architecture.md#dashboard-spa)). With `mix phx.server` running:
+
+```sh
+cd frontend
+npm install
+npm run dev      # http://localhost:5173, proxies /api and /socket to Phoenix
+npm run check    # format, lint, type-check and tests
+npm run build    # writes priv/static, served by Phoenix at http://localhost:4000
+```
+
 ## Use it from Claude Code
 
 courier serves MCP at `/mcp`, so an agent can answer "why did this webhook fail?" with the same data and rules as the API. Connect Claude Code with a key that has `read` (and `write` to allow resends), such as the `demo` key from the seeds:

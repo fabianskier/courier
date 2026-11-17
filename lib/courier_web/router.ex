@@ -54,4 +54,9 @@ defmodule CourierWeb.Router do
       metrics: CourierWeb.Telemetry,
       ecto_repos: [Courier.Repo]
   end
+
+  # The dashboard SPA: any other GET path gets its index.html. Must stay last.
+  scope "/", CourierWeb do
+    get "/*path", SpaController, :index
+  end
 end

@@ -17,7 +17,7 @@ For each task of an [OpenSpec](https://github.com/Fission-AI/OpenSpec) change (`
    - existing tests (and Smelt's own files) must not be changed,
    - the diff must stay small (about 400 lines and 20 files per task),
    - `openspec validate --strict` must pass,
-   - the project's `.smelt/checks.sh` (compile with warnings as errors, format, tests) must pass within a timeout;
+   - the project's `.smelt/checks.sh` (compile with warnings as errors, format and tests for Elixir; format, lint, type-check and tests for the dashboard) must pass within a timeout;
 5. if the gate fails, gives the agent **one retry** with the failure details;
 6. asks the **human to approve** the merge, or discards the work.
 

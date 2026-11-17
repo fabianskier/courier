@@ -29,7 +29,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # Installs Erlang and Elixir from mise.toml, the same versions used locally.
+      # Installs Erlang, Elixir and Node from mise.toml, the same versions used locally.
       - uses: jdx/mise-action@v5
 
       - name: Cache deps and build
@@ -41,5 +41,13 @@ jobs:
           key: mix-${{ runner.os }}-${{ hashFiles('mise.toml', 'mix.lock') }}
           restore-keys: mix-${{ runner.os }}-
 
+      - name: Cache npm downloads
+        uses: actions/cache@v6
+        with:
+          path: ~/.npm
+          key: npm-${{ runner.os }}-${{ hashFiles('mise.toml', 'frontend/package-lock.json') }}
+          restore-keys: npm-${{ runner.os }}-
+
+      # Elixir and dashboard checks: compile, format, lint, types and tests.
       - name: Gate checks
         run: sh .smelt/checks.sh

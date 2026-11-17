@@ -23,6 +23,17 @@ ARG DEBIAN_VERSION=trixie-20261104-slim
 
 ARG BUILDER_IMAGE="docker.io/hexpm/elixir:${ELIXIR_VERSION}-erlang-${OTP_VERSION}-debian-${DEBIAN_VERSION}"
 ARG RUNNER_IMAGE="docker.io/debian:${DEBIAN_VERSION}"
+# Same Node version as mise.toml.
+ARG NODE_IMAGE="docker.io/node:26.13.1-trixie-slim"
+
+# The dashboard SPA, built by Vite into /app/priv/static.
+FROM ${NODE_IMAGE} AS frontend
+
+WORKDIR /app/frontend
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
+COPY frontend ./
+RUN npm run build
 
 FROM ${BUILDER_IMAGE} AS builder
 
@@ -53,6 +64,7 @@ COPY config/config.exs config/${MIX_ENV}.exs config/
 RUN mix deps.compile
 
 COPY priv priv
+COPY --from=frontend /app/priv/static priv/static
 
 COPY lib lib
 

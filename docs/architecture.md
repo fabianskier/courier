@@ -70,6 +70,20 @@ Notes:
 - **Local runtime.** `docker compose up` starts `courier`, `postgres` and `demo-receiver` (see "Docker demo"). Developers can also run with mise + a local Postgres.
 - **SPA.** Built by Vite into `priv/static` and served by Phoenix on the same origin (no CORS). In development the Vite dev server proxies `/api` and `/socket` to Phoenix.
 
+## Dashboard SPA
+
+The dashboard lives in `frontend/`: Vite, React and TypeScript (`strict`), TanStack Router (file routes in `src/routes/`, route tree generated into `src/routeTree.gen.ts` and committed), TanStack Query, Tailwind and shadcn/ui (Radix, `radix-nova` style; components in `src/components/ui/`). Tests are in `frontend/tests/` (Vitest, Testing Library, jsdom; MSW for the network), so Smelt's gate protects them like `test/`.
+
+| Mode | How it runs |
+|---|---|
+| Development | `npm run dev` in `frontend/` at <http://localhost:5173>, with `mix phx.server` on port 4000; Vite proxies `/api` and `/socket` to Phoenix |
+| Build | `npm run build` writes `priv/static` (ignored by git): `index.html`, hashed files under `assets/`, `favicon.ico`, `robots.txt` |
+| Release | The `Dockerfile` builds the SPA in a Node stage and copies `priv/static` into the release |
+
+Phoenix serves `assets/`, `favicon.ico` and `robots.txt` with `Plug.Static`, and `CourierWeb.SpaController` answers every other GET path with `index.html` (`cache-control: no-cache`), so client routes survive a reload. Unknown paths under `/api`, `/admin`, `/dev` and `/socket` keep the JSON 404; `/mcp` has its own forward. Without a build, the catch-all answers 404 with a hint to run `npm run build`.
+
+`frontend/` checks, also in `.smelt/checks.sh`: `npm run format:check` (oxfmt), `npm run lint` (oxlint, warnings fail), `npm run typecheck` (`tsc -b`) and `npm run test` (Vitest); `npm run check` runs all four.
+
 ## Code layout (proposed)
 
 ```text

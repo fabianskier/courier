@@ -1,3 +1,4 @@
 {
+  "test_paths": ["test/", "frontend/tests/"],
   "max_changed_lines": 600
 }
