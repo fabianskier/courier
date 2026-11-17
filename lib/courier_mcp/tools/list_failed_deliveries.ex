@@ -1,8 +1,8 @@
 defmodule CourierMCP.Tools.ListFailedDeliveries do
   @moduledoc """
-  Lists the deliveries that failed (every attempt was used or the delivery
-  window ended), newest first, without their attempts, optionally for one
-  endpoint. Returns at most `limit` deliveries and a `next_cursor` when more
+  Lists the deliveries that failed for good (the endpoint gave an answer that
+  is not retried, or the retry window ended), newest first, without their
+  attempts, optionally for one endpoint. Returns at most `limit` deliveries and a `next_cursor` when more
   exist. Use get_delivery to see why one failed.
   """
 
