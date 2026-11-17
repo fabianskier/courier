@@ -8,9 +8,11 @@ defmodule Courier.Application do
   @impl true
   def start(_type, _args) do
     children = [
-      CourierWeb.Telemetry,
       Courier.Vault,
       Courier.Repo,
+      # After the repo: its poller measures queue lag through Courier.Repo
+      # as soon as it starts, and stops before the repo on shutdown.
+      CourierWeb.Telemetry,
       # Webhook delivery: Finch keeps one pool per origin, each at least as
       # large as the largest allowed endpoint max_concurrency (50). The
       # connect timeout lives here because Req does not accept
