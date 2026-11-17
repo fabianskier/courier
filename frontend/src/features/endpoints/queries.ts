@@ -1,6 +1,6 @@
-import { infiniteQueryOptions, queryOptions } from '@tanstack/react-query'
+import { infiniteQueryOptions, queryOptions, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
-import { apiFetch } from '@/lib/api/client'
+import { ApiError, apiFetch } from '@/lib/api/client'
 import { queryKeys } from '@/lib/api/query-keys'
 import type { EndpointDetail, Page } from '@/lib/api/types'
 
@@ -61,11 +61,46 @@ export async function createEndpoint(body: NewEndpoint) {
   return { endpoint, secret }
 }
 
+const endpointPath = (id: string) => `/endpoints/${encodeURIComponent(id)}`
+
+// What `PATCH /api/v1/endpoints/:id` accepts; only changed fields are sent.
+export type EndpointChanges = Partial<Omit<NewEndpoint, 'merchant_id'>> & { enabled?: boolean }
+
+export const updateEndpoint = (id: string, changes: EndpointChanges) =>
+  apiFetch<{ data: EndpointDetail }>(endpointPath(id), { method: 'PATCH', body: changes })
+
+// Rotates the signing secret and splits it off, like `createEndpoint`.
+export async function rotateEndpointSecret(id: string) {
+  const { data } = await apiFetch<{ data: EndpointDetail & { secret: string } }>(
+    `${endpointPath(id)}/rotate_secret`,
+    { method: 'POST' },
+  )
+  const { secret, ...endpoint } = data
+  return { endpoint, secret }
+}
+
+// After a change: the updated endpoint is shown at once, and every endpoint
+// list and lookup is refetched so URLs and states stay current.
+export function useEndpointSaved() {
+  const queryClient = useQueryClient()
+  return async (endpoint: EndpointDetail) => {
+    queryClient.setQueryData(queryKeys.endpoint(endpoint.id), { data: endpoint })
+    await queryClient.invalidateQueries({ queryKey: ['endpoints'] })
+  }
+}
+
+// The API names the retry window in seconds; the forms ask for hours.
+export function toEndpointFormError(error: unknown) {
+  if (!(error instanceof ApiError) || !error.details?.retry_window_seconds) return error
+  const { retry_window_seconds, ...details } = error.details
+  const renamed = { ...details, retry_window_hours: retry_window_seconds }
+  return new ApiError(error.status, error.code, error.message, renamed)
+}
+
 export function endpointQueryOptions(id: string) {
   return queryOptions({
     queryKey: queryKeys.endpoint(id),
-    queryFn: ({ signal }) =>
-      apiFetch<{ data: EndpointDetail }>(`/endpoints/${encodeURIComponent(id)}`, { signal }),
+    queryFn: ({ signal }) => apiFetch<{ data: EndpointDetail }>(endpointPath(id), { signal }),
     select: (body) => body.data,
   })
 }

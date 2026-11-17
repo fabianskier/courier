@@ -10,7 +10,7 @@ Each task must stay within the gate's diff budget (about 800 changed lines and 2
 
 - [x] 2.1 Add `HealthBadge`, the endpoints list (`_app/endpoints.index` with merchant and "degraded only" filters in the URL), the endpoint page (`_app/endpoints.$endpointId`, read-only: details, health, secret overlap, link to its deliveries), the "Endpoints" navigation link, and links from the merchant page; verify with `frontend/tests/endpoints.test.tsx` covering every scenario of "Endpoints list" and "Endpoint page"
 - [x] 2.2 Add the create form (`_app/endpoints.new`, merchant preselected from the search, "New endpoint" on the merchant page) and `SecretReveal`; verify with `frontend/tests/endpoint-create.test.tsx` covering every scenario of "Create endpoints" and "Secret shown once"
-- [ ] 2.3 Add editing, disable/enable and secret rotation on the endpoint page, and the write-scope rule for every endpoint action; verify with `frontend/tests/endpoint-edit.test.tsx` covering every scenario of "Edit, disable and rotate endpoints" and "Management needs the write scope"
+- [x] 2.3 Add editing, disable/enable and secret rotation on the endpoint page, and the write-scope rule for every endpoint action; verify with `frontend/tests/endpoint-edit.test.tsx` covering every scenario of "Edit, disable and rotate endpoints" and "Management needs the write scope"
 
 ## 3. Docs
 

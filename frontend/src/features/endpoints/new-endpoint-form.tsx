@@ -9,12 +9,11 @@ import { Button } from '@/components/ui/button'
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import * as S from '@/components/ui/select'
-import { ApiError } from '@/lib/api/client'
 import { useMerchants } from '@/lib/api/lookups'
 import { queryKeys } from '@/lib/api/query-keys'
 import type { EndpointDetail } from '@/lib/api/types'
 import { applyApiErrors } from '@/lib/forms'
-import { createEndpoint, splitEventTypes } from './queries'
+import { createEndpoint, splitEventTypes, toEndpointFormError } from './queries'
 import { SecretReveal } from './secret-reveal'
 
 // Only required fields and number types are checked here: the API's
@@ -30,14 +29,6 @@ const schema = z.object({
 })
 
 type Values = z.infer<typeof schema>
-
-// The API names the retry window in seconds; the form asks for hours.
-function toFormError(error: unknown) {
-  if (!(error instanceof ApiError) || !error.details?.retry_window_seconds) return error
-  const { retry_window_seconds, ...details } = error.details
-  const renamed = { ...details, retry_window_hours: retry_window_seconds }
-  return new ApiError(error.status, error.code, error.message, renamed)
-}
 
 // Creates an endpoint, then shows its signing secret once in place of the form.
 export function NewEndpointForm({ merchantId }: { merchantId?: string }) {
@@ -82,7 +73,7 @@ export function NewEndpointForm({ merchantId }: { merchantId?: string }) {
       // Lists and lookups pick up the new endpoint.
       await queryClient.invalidateQueries({ queryKey: ['endpoints'] })
     },
-    onError: (error) => setFailure(applyApiErrors(form, toFormError(error))),
+    onError: (error) => setFailure(applyApiErrors(form, toEndpointFormError(error))),
   })
 
   const onSubmit = (values: Values) => {

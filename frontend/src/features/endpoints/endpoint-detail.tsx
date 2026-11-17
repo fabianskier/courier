@@ -2,16 +2,21 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { LoadError } from '@/components/load-error'
 import { Skeleton } from '@/components/ui/skeleton'
+import { WriteScopeNote } from '@/components/write-scope-note'
+import { useCanWrite } from '@/features/auth/session'
 import { MerchantState } from '@/features/merchants/merchant-state'
 import { ApiError } from '@/lib/api/client'
 import { useMerchantName } from '@/lib/api/lookups'
 import type { EndpointDetail } from '@/lib/api/types'
 import { formatDateTime, formatRetryWindow } from '@/lib/format'
+import { EndpointEditForm } from './endpoint-edit-form'
+import { EndpointToggle } from './endpoint-toggle'
 import { HealthBadge } from './health-badge'
 import { endpointQueryOptions } from './queries'
+import { RotateSecretDialog } from './rotate-secret-dialog'
 
-// One endpoint, read-only: details, settings, health, secret overlap and a
-// link to its deliveries.
+// One endpoint: details, settings, health, secret overlap, a link to its
+// deliveries, and the changes a `write` key may make.
 export function EndpointDetailView({ endpointId }: { endpointId: string }) {
   const query = useQuery(endpointQueryOptions(endpointId))
 
@@ -49,7 +54,28 @@ export function EndpointDetailView({ endpointId }: { endpointId: string }) {
       >
         Deliveries of this endpoint
       </Link>
+      <EndpointActions endpoint={endpoint} />
     </section>
+  )
+}
+
+// Disable/enable, rotate and edit, for `write` keys; a note for the rest.
+function EndpointActions({ endpoint }: { endpoint: EndpointDetail }) {
+  const canWrite = useCanWrite()
+
+  if (!canWrite) return <WriteScopeNote />
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-wrap gap-3">
+        <EndpointToggle endpoint={endpoint} />
+        <RotateSecretDialog endpoint={endpoint} />
+      </div>
+      <div className="flex flex-col gap-2">
+        <h2 className="font-heading text-lg font-semibold">Edit</h2>
+        {/* A new key resets the form to the saved values. */}
+        <EndpointEditForm key={endpoint.updated_at} endpoint={endpoint} />
+      </div>
+    </div>
   )
 }
 
