@@ -50,3 +50,21 @@ export interface DeliverySummary {
   triggered_by: string
   inserted_at: string
 }
+
+// One attempt of a delivery (request headers are never rendered by the API).
+export interface Attempt {
+  number: number
+  started_at: string
+  duration_ms: number | null
+  url: string
+  response_status: number | null
+  response_body: string | null
+  error: string | null
+}
+
+// `GET /api/v1/deliveries/:id`: the delivery with its resends and attempts.
+export interface DeliveryDetail extends DeliverySummary {
+  window_ends_at: string | null
+  resends: { id: string; status: DeliveryStatus; triggered_by: string; inserted_at: string }[]
+  attempts: Attempt[]
+}

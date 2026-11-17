@@ -9,5 +9,6 @@ export const queryKeys = {
   },
   deliveries: {
     list: (filters: object) => ['deliveries', 'list', filters] as const,
+    detail: (id: string) => ['deliveries', 'detail', id] as const,
   },
 }

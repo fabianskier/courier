@@ -1,8 +1,8 @@
-import { infiniteQueryOptions } from '@tanstack/react-query'
+import { infiniteQueryOptions, queryOptions } from '@tanstack/react-query'
 import { z } from 'zod'
 import { apiFetch } from '@/lib/api/client'
 import { queryKeys } from '@/lib/api/query-keys'
-import type { DeliverySummary, Page } from '@/lib/api/types'
+import type { DeliveryDetail, DeliverySummary, Page } from '@/lib/api/types'
 
 export const deliveryStatuses = ['pending', 'succeeded', 'failed', 'skipped'] as const
 
@@ -32,5 +32,14 @@ export function deliveriesQueryOptions(filters: DeliveryFilters) {
       }),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (page) => page.next_cursor ?? undefined,
+  })
+}
+
+export function deliveryQueryOptions(id: string) {
+  return queryOptions({
+    queryKey: queryKeys.deliveries.detail(id),
+    queryFn: ({ signal }) =>
+      apiFetch<{ data: DeliveryDetail }>(`/deliveries/${encodeURIComponent(id)}`, { signal }),
+    select: (body) => body.data,
   })
 }

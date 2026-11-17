@@ -55,10 +55,13 @@ export function EventDetailView({ eventId }: { eventId: string }) {
           <li key={delivery.id} className="flex items-center gap-3">
             <Badge variant="outline">{delivery.status}</Badge>
             <span className="font-mono">{endpointUrl(delivery.endpoint_id)}</span>
-            {/* A plain link until the delivery page's route exists (task 4.1). */}
-            <a href={`/deliveries/${delivery.id}`} className="underline underline-offset-4">
+            <Link
+              to="/deliveries/$deliveryId"
+              params={{ deliveryId: delivery.id }}
+              className="underline underline-offset-4"
+            >
               Delivery {delivery.id}
-            </a>
+            </Link>
           </li>
         ))}
       </ul>

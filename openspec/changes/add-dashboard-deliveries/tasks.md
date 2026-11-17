@@ -18,7 +18,7 @@ Each task must stay within the gate's diff budget (about 800 changed lines and 2
 
 ## 4. Delivery page and resend
 
-- [ ] 4.1 Add the delivery page (`_app/deliveries/$deliveryId`): summary, pending and skipped states, the attempt timeline with "Show more", and the resend links; verify with `frontend/tests/delivery-page.test.tsx` covering every scenario of "Delivery page", "Attempt timeline" and "Resend links"
+- [x] 4.1 Add the delivery page (`_app/deliveries/$deliveryId`): summary, pending and skipped states, the attempt timeline with "Show more", and the resend links; verify with `frontend/tests/delivery-page.test.tsx` covering every scenario of "Delivery page", "Attempt timeline" and "Resend links"
 - [ ] 4.2 Add `ResendButton` with its confirmation dialog, scope and status rules, success navigation with a toast, and the API error message; verify with `frontend/tests/resend.test.tsx` covering every scenario of "Resend with confirmation" and "Resend only when allowed"
 
 ## 5. Docs

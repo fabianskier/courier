@@ -1,4 +1,5 @@
 import { useInfiniteQuery } from '@tanstack/react-query'
+import { Link } from '@tanstack/react-router'
 import { LoadError } from '@/components/load-error'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -50,13 +51,13 @@ export function DeliveriesTable({ filters, emptyMessage }: Props) {
               <T.TableCell className="font-mono">{endpointUrl(delivery.endpoint_id)}</T.TableCell>
               <T.TableCell>{delivery.attempt_count}</T.TableCell>
               <T.TableCell>
-                {/* A plain link until the delivery page's route exists (task 4.1). */}
-                <a
-                  href={`/deliveries/${delivery.id}`}
+                <Link
+                  to="/deliveries/$deliveryId"
+                  params={{ deliveryId: delivery.id }}
                   className="font-mono underline underline-offset-4"
                 >
                   {shortId(delivery.id)}
-                </a>
+                </Link>
               </T.TableCell>
             </T.TableRow>
           ))}
