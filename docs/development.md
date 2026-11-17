@@ -11,14 +11,15 @@ courier is developed with a spec-driven, agent-assisted workflow. Requirements a
 For each task of an [OpenSpec](https://github.com/Fission-AI/OpenSpec) change (`openspec/changes/<change>/tasks.md`), `mix smelt.task REPO CHANGE TASK_ID`:
 
 1. creates a fresh **git worktree** for the task, outside the project;
-2. runs **Claude Code headless** in it with limited permissions and only the project's own settings and skills (no API key: the Claude Code CLI only);
-3. runs a **deterministic gate**, with no AI involved:
+2. runs the project's `.smelt/setup.sh` in it, if there is one (dependencies and a first compile), so the agent starts on a ready project;
+3. runs **Claude Code headless** in it with limited permissions and only the project's own settings and skills (no API key: the Claude Code CLI only);
+4. runs a **deterministic gate**, with no AI involved:
    - existing tests (and Smelt's own files) must not be changed,
    - the diff must stay small (about 400 lines and 20 files per task),
    - `openspec validate --strict` must pass,
    - the project's `.smelt/checks.sh` (compile with warnings as errors, format, tests) must pass within a timeout;
-4. if the gate fails, gives the agent **one retry** with the failure details;
-5. asks the **human to approve** the merge, or discards the work.
+5. if the gate fails, gives the agent **one retry** with the failure details;
+6. asks the **human to approve** the merge, or discards the work.
 
 ### Where it fits in this project
 
@@ -37,6 +38,7 @@ Every task merged through Smelt passed the same checks that CI runs, and every s
 Smelt is young and growing alongside this project. Today it covers **one task end to end from the command line**:
 
 - Done: Claude Code runner with a streamed event log, one worktree per task, the deterministic gate, the task pipeline (build → gate → one retry → approval → merge or discard), and agent isolation from the user's own Claude Code setup.
+- Done, to keep token use down: a workspace setup step before the agent, a prompt that limits full check runs to one, a spending limit per agent attempt, an optional cheaper model per task, and a token report per task run. `.smelt/checks.sh` prints one line per passing step and the full output only for a failing one.
 - Not yet: resuming runs after a crash or usage limit, running several tasks in parallel with a merge queue, writing proposals and specs as part of the pipeline, automatic review, and a web dashboard (built but parked).
 
 This section is updated as Smelt gains features that change how courier is built.

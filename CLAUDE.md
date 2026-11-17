@@ -11,7 +11,7 @@ A webhook delivery engine in Elixir with a React + shadcn/ui dashboard and an MC
 - Keep all domain logic in contexts under `lib/courier/`. `lib/courier_web/` (JSON API, channels) and `lib/courier_mcp/` stay thin adapters.
 - Tests: name them after the spec (`describe "Requirement: <name>"`, `test "Scenario: <name>"`). Never modify or delete an existing test; add new test files.
 - Never log or store secrets, full signatures or `Authorization` headers.
-- Before finishing, run `mix precommit` and `sh .smelt/checks.sh`, and fix any failure.
+- Before finishing, run `mix format` and then `sh .smelt/checks.sh` once (the checks CI and Smelt's gate run), and fix any failure. Do not also run `mix precommit`: it repeats the same checks.
 
 ## Git
 
