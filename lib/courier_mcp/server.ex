@@ -13,4 +13,7 @@ defmodule CourierMCP.Server do
     capabilities: [:tools]
 
   component(CourierMCP.Tools.GetEvent)
+  component(CourierMCP.Tools.GetDelivery)
+  component(CourierMCP.Tools.ListDeliveries)
+  component(CourierMCP.Tools.ListFailedDeliveries)
 end
