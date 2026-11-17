@@ -17,6 +17,8 @@ import { Route as AppDeliveriesIndexRouteImport } from './routes/_app/deliveries
 import { Route as AppDeliveriesDeliveryIdRouteImport } from './routes/_app/deliveries.$deliveryId'
 import { Route as AppEventsIndexRouteImport } from './routes/_app/events.index'
 import { Route as AppEventsEventIdRouteImport } from './routes/_app/events.$eventId'
+import { Route as AppMerchantsIndexRouteImport } from './routes/_app/merchants.index'
+import { Route as AppMerchantsMerchantIdRouteImport } from './routes/_app/merchants.$merchantId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -57,6 +59,16 @@ const AppEventsEventIdRoute = AppEventsEventIdRouteImport.update({
   path: '/events/$eventId',
   getParentRoute: () => AppRoute,
 } as any)
+const AppMerchantsIndexRoute = AppMerchantsIndexRouteImport.update({
+  id: '/merchants/',
+  path: '/merchants/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppMerchantsMerchantIdRoute = AppMerchantsMerchantIdRouteImport.update({
+  id: '/merchants/$merchantId',
+  path: '/merchants/$merchantId',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -64,8 +76,10 @@ export interface FileRoutesByFullPath {
   '/failed': typeof AppFailedRoute
   '/deliveries/$deliveryId': typeof AppDeliveriesDeliveryIdRoute
   '/events/$eventId': typeof AppEventsEventIdRoute
+  '/merchants/$merchantId': typeof AppMerchantsMerchantIdRoute
   '/deliveries/': typeof AppDeliveriesIndexRoute
   '/events/': typeof AppEventsIndexRoute
+  '/merchants/': typeof AppMerchantsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -73,8 +87,10 @@ export interface FileRoutesByTo {
   '/failed': typeof AppFailedRoute
   '/deliveries/$deliveryId': typeof AppDeliveriesDeliveryIdRoute
   '/events/$eventId': typeof AppEventsEventIdRoute
+  '/merchants/$merchantId': typeof AppMerchantsMerchantIdRoute
   '/deliveries': typeof AppDeliveriesIndexRoute
   '/events': typeof AppEventsIndexRoute
+  '/merchants': typeof AppMerchantsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -84,8 +100,10 @@ export interface FileRoutesById {
   '/_app/failed': typeof AppFailedRoute
   '/_app/deliveries/$deliveryId': typeof AppDeliveriesDeliveryIdRoute
   '/_app/events/$eventId': typeof AppEventsEventIdRoute
+  '/_app/merchants/$merchantId': typeof AppMerchantsMerchantIdRoute
   '/_app/deliveries/': typeof AppDeliveriesIndexRoute
   '/_app/events/': typeof AppEventsIndexRoute
+  '/_app/merchants/': typeof AppMerchantsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -95,8 +113,10 @@ export interface FileRouteTypes {
     | '/failed'
     | '/deliveries/$deliveryId'
     | '/events/$eventId'
+    | '/merchants/$merchantId'
     | '/deliveries/'
     | '/events/'
+    | '/merchants/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -104,8 +124,10 @@ export interface FileRouteTypes {
     | '/failed'
     | '/deliveries/$deliveryId'
     | '/events/$eventId'
+    | '/merchants/$merchantId'
     | '/deliveries'
     | '/events'
+    | '/merchants'
   id:
     | '__root__'
     | '/'
@@ -114,8 +136,10 @@ export interface FileRouteTypes {
     | '/_app/failed'
     | '/_app/deliveries/$deliveryId'
     | '/_app/events/$eventId'
+    | '/_app/merchants/$merchantId'
     | '/_app/deliveries/'
     | '/_app/events/'
+    | '/_app/merchants/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -182,6 +206,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppEventsEventIdRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/merchants/': {
+      id: '/_app/merchants/'
+      path: '/merchants'
+      fullPath: '/merchants/'
+      preLoaderRoute: typeof AppMerchantsIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/merchants/$merchantId': {
+      id: '/_app/merchants/$merchantId'
+      path: '/merchants/$merchantId'
+      fullPath: '/merchants/$merchantId'
+      preLoaderRoute: typeof AppMerchantsMerchantIdRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
@@ -189,16 +227,20 @@ interface AppRouteChildren {
   AppFailedRoute: typeof AppFailedRoute
   AppDeliveriesDeliveryIdRoute: typeof AppDeliveriesDeliveryIdRoute
   AppEventsEventIdRoute: typeof AppEventsEventIdRoute
+  AppMerchantsMerchantIdRoute: typeof AppMerchantsMerchantIdRoute
   AppDeliveriesIndexRoute: typeof AppDeliveriesIndexRoute
   AppEventsIndexRoute: typeof AppEventsIndexRoute
+  AppMerchantsIndexRoute: typeof AppMerchantsIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
   AppFailedRoute: AppFailedRoute,
   AppDeliveriesDeliveryIdRoute: AppDeliveriesDeliveryIdRoute,
   AppEventsEventIdRoute: AppEventsEventIdRoute,
+  AppMerchantsMerchantIdRoute: AppMerchantsMerchantIdRoute,
   AppDeliveriesIndexRoute: AppDeliveriesIndexRoute,
   AppEventsIndexRoute: AppEventsIndexRoute,
+  AppMerchantsIndexRoute: AppMerchantsIndexRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)

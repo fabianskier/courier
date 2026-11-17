@@ -4,7 +4,7 @@ Each task must stay within the gate's diff budget (about 800 changed lines and 2
 
 ## 1. Merchants
 
-- [ ] 1.1 Add `PATCH` and JSON bodies to `apiFetch` and `details` to `ApiError`, the `applyApiErrors` form helper, the merchants list (`_app/merchants.index`), the create form, the merchant page (`_app/merchants.$merchantId`) with rename and disable/enable, the "Merchants" navigation link and the write-scope rule for these pages; verify with `frontend/tests/merchants.test.tsx` covering every scenario of "Merchants list and page" and "Create and edit merchants" (the merchant page's endpoints list may show URLs only until 2.1 adds endpoint pages)
+- [x] 1.1 Add `PATCH` and JSON bodies to `apiFetch` and `details` to `ApiError`, the `applyApiErrors` form helper, the merchants list (`_app/merchants.index`), the create form, the merchant page (`_app/merchants.$merchantId`) with rename and disable/enable, the "Merchants" navigation link and the write-scope rule for these pages; verify with `frontend/tests/merchants.test.tsx` covering every scenario of "Merchants list and page" and "Create and edit merchants" (the merchant page's endpoints list may show URLs only until 2.1 adds endpoint pages)
 
 ## 2. Endpoints
 

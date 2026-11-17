@@ -19,6 +19,9 @@ export function useMe() {
   return useSuspenseQuery(meQueryOptions()).data
 }
 
+// Whether the key in use may change merchants and endpoints.
+export const useCanWrite = () => useMe().scopes.includes('write')
+
 // Only same-app paths are followed after sign-in, never another origin.
 export const safeRedirect = (value = '') => (/^\/(?![/\\]|sign-in)/.test(value) ? value : '/')
 

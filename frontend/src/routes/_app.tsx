@@ -24,6 +24,7 @@ const links = [
   { to: '/events', label: 'Events' },
   { to: '/deliveries', label: 'Deliveries' },
   { to: '/failed', label: 'Failed' },
+  { to: '/merchants', label: 'Merchants' },
 ] as const
 
 function AppLayout() {

@@ -8,7 +8,7 @@ export interface Me {
 
 // Every error rendered by CourierWeb.FallbackController.
 export interface ApiErrorBody {
-  error: { code: string; message: string }
+  error: { code: string; message: string; details?: Record<string, string[]> }
 }
 
 // One page of a cursor-paginated list.
@@ -16,6 +16,12 @@ export type Page<T> = { data: T[]; next_cursor: string | null }
 
 // Merchants and endpoints (CourierWeb.MerchantJSON, EndpointJSON): fields used here.
 export type Merchant = { id: string; name: string }
+// One merchant as `GET /api/v1/merchants[/:id]` renders it.
+export interface MerchantDetail extends Merchant {
+  enabled: boolean
+  inserted_at: string
+  updated_at: string
+}
 export type Endpoint = { id: string; merchant_id: string; url: string }
 
 export type DeliveryStatus = 'pending' | 'succeeded' | 'failed' | 'skipped'
