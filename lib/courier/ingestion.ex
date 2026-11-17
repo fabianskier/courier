@@ -72,19 +72,24 @@ defmodule Courier.Ingestion do
   @doc """
   Lists events newest first, one page at a time (see `Courier.Pagination`).
   With `merchant_id`, only that merchant's events (a malformed id matches
-  none); with `type`, only events of exactly that type. Deliveries are not
-  loaded.
+  none); with `type`, only events of exactly that type; with `since`
+  (inclusive) and `until` (exclusive), `DateTime`s, only events received in
+  that range (`received_at`). Deliveries are not loaded.
   """
   @spec list_events(%{
           required(:limit) => pos_integer(),
           optional(:cursor) => String.t() | nil,
           optional(:merchant_id) => String.t() | nil,
-          optional(:type) => String.t() | nil
+          optional(:type) => String.t() | nil,
+          optional(:since) => DateTime.t() | nil,
+          optional(:until) => DateTime.t() | nil
         }) :: {:ok, Pagination.page()} | {:error, :invalid_cursor}
   def list_events(opts) when is_map(opts) do
     Event
     |> filter_by_merchant(Map.get(opts, :merchant_id))
     |> filter_by_type(Map.get(opts, :type))
+    |> filter_received_since(Map.get(opts, :since))
+    |> filter_received_until(Map.get(opts, :until))
     |> Pagination.paginate(Map.put(opts, :order, :desc))
   end
 
@@ -114,6 +119,16 @@ defmodule Courier.Ingestion do
   defp filter_by_type(query, nil), do: query
   defp filter_by_type(query, type) when is_binary(type), do: where(query, [e], e.type == ^type)
   defp filter_by_type(query, _type), do: where(query, false)
+
+  defp filter_received_since(query, nil), do: query
+
+  defp filter_received_since(query, %DateTime{} = since),
+    do: where(query, [e], e.received_at >= ^since)
+
+  defp filter_received_until(query, nil), do: query
+
+  defp filter_received_until(query, %DateTime{} = until),
+    do: where(query, [e], e.received_at < ^until)
 
   defp preload_deliveries(event) do
     Repo.preload(event,

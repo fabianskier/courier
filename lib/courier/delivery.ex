@@ -30,8 +30,8 @@ defmodule Courier.Delivery do
   @type health_change :: :degraded | :recovered | nil
 
   @doc """
-  Returns `{:ok, delivery}` with its attempts preloaded in `number` order and
-  its direct resends preloaded oldest first, or `{:error, :not_found}` for an
+  Returns `{:ok, delivery}` with its event, its attempts in `number` order and
+  its direct resends oldest first preloaded, or `{:error, :not_found}` for an
   unknown or malformed id.
   """
   @spec get_delivery(term()) :: {:ok, Delivery.t()} | {:error, :not_found}
@@ -41,7 +41,7 @@ defmodule Courier.Delivery do
 
     with {:ok, uuid} <- Ecto.UUID.cast(id),
          %Delivery{} = delivery <- Repo.get(Delivery, uuid) do
-      {:ok, Repo.preload(delivery, attempts: attempts, resends: resends)}
+      {:ok, Repo.preload(delivery, event: [], attempts: attempts, resends: resends)}
     else
       _ -> {:error, :not_found}
     end
@@ -50,12 +50,15 @@ defmodule Courier.Delivery do
   @default_list_limit 20
 
   @doc """
-  Lists deliveries newest first (`inserted_at`, then `id`), without attempts.
+  Lists deliveries newest first (`inserted_at`, then `id`), with their event
+  preloaded from a join in the same query, and without attempts.
 
-  `opts` may hold the filters `:status`, `:endpoint_id` and `:event_id` (a nil
-  or missing filter is not applied; an id that is not a UUID matches nothing),
-  `:limit` (default #{@default_list_limit}) and `:cursor`, the `next_cursor`
-  of a previous page.
+  `opts` may hold the filters `:status`, `:endpoint_id`, `:event_id`,
+  `:merchant_id` and `:event_type` (both of the delivery's event), and
+  `:since` (inclusive) and `:until` (exclusive), `DateTime`s compared with the
+  delivery's `inserted_at`. A nil or missing filter is not applied; an id that
+  is not a UUID matches nothing. Also `:limit` (default
+  #{@default_list_limit}) and `:cursor`, the `next_cursor` of a previous page.
 
   Returns `{:ok, %{items: deliveries, next_cursor: cursor_or_nil}}` or
   `{:error, :invalid_cursor}`.
@@ -64,6 +67,10 @@ defmodule Courier.Delivery do
           optional(:status) => String.t() | nil,
           optional(:endpoint_id) => term(),
           optional(:event_id) => term(),
+          optional(:merchant_id) => term(),
+          optional(:event_type) => String.t() | nil,
+          optional(:since) => DateTime.t() | nil,
+          optional(:until) => DateTime.t() | nil,
           optional(:limit) => pos_integer() | nil,
           optional(:cursor) => String.t() | nil
         }) :: {:ok, Pagination.page()} | {:error, :invalid_cursor}
@@ -74,16 +81,45 @@ defmodule Courier.Delivery do
       order: :desc
     }
 
-    Delivery
+    from(d in Delivery, join: e in assoc(d, :event), as: :event, preload: [event: e])
     |> filter_status(Map.get(opts, :status))
     |> filter_id(:endpoint_id, Map.get(opts, :endpoint_id))
     |> filter_id(:event_id, Map.get(opts, :event_id))
+    |> filter_merchant(Map.get(opts, :merchant_id))
+    |> filter_event_type(Map.get(opts, :event_type))
+    |> filter_since(Map.get(opts, :since))
+    |> filter_until(Map.get(opts, :until))
     |> Pagination.paginate(page_opts)
   end
 
   defp filter_status(query, nil), do: query
-  defp filter_status(query, status) when is_binary(status), do: where(query, status: ^status)
+
+  defp filter_status(query, status) when is_binary(status),
+    do: where(query, [d], d.status == ^status)
+
   defp filter_status(query, _status), do: where(query, false)
+
+  defp filter_merchant(query, nil), do: query
+
+  defp filter_merchant(query, merchant_id) do
+    case Ecto.UUID.cast(merchant_id) do
+      {:ok, uuid} -> where(query, [event: e], e.merchant_id == ^uuid)
+      :error -> where(query, false)
+    end
+  end
+
+  defp filter_event_type(query, nil), do: query
+
+  defp filter_event_type(query, type) when is_binary(type),
+    do: where(query, [event: e], e.type == ^type)
+
+  defp filter_event_type(query, _type), do: where(query, false)
+
+  defp filter_since(query, nil), do: query
+  defp filter_since(query, %DateTime{} = since), do: where(query, [d], d.inserted_at >= ^since)
+
+  defp filter_until(query, nil), do: query
+  defp filter_until(query, %DateTime{} = until), do: where(query, [d], d.inserted_at < ^until)
 
   defp filter_id(query, _field, nil), do: query
 
