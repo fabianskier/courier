@@ -11,7 +11,8 @@ A webhook delivery engine in Elixir with a React + shadcn/ui dashboard and an MC
 - Keep all domain logic in contexts under `lib/courier/`. `lib/courier_web/` (JSON API, channels) and `lib/courier_mcp/` stay thin adapters.
 - Tests: name them after the spec (`describe "Requirement: <name>"`, `test "Scenario: <name>"`). Never modify or delete an existing test; add new test files.
 - Never log or store secrets, full signatures or `Authorization` headers.
-- Before finishing, run `mix format` and then `sh .smelt/checks.sh` once (the checks CI and Smelt's gate run), and fix any failure. Do not also run `mix precommit`: it repeats the same checks.
+- Frontend (`frontend/`), from the repository root: one test file with `npm run test --prefix frontend -- tests/<file>.test.tsx`, formatting with `npm run format --prefix frontend`, types with `npm run typecheck --prefix frontend`. Dependencies are already installed; do not add packages.
+- Before finishing, run `mix format` (and `npm run format --prefix frontend` if you changed the frontend) and then `sh .smelt/checks.sh` once (the checks CI and Smelt's gate run), and fix any failure. Do not also run `mix precommit`: it repeats the same checks.
 
 ## Git
 
