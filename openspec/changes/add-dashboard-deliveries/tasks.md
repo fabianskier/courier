@@ -14,7 +14,7 @@ Each task must stay within the gate's diff budget (about 800 changed lines and 2
 ## 3. Lists
 
 - [x] 3.1 Add `src/lib/format.ts`, the merchants and endpoints lookup queries, the events list (`_app/events` route with Zod search, filters, "Load more", loading, empty and error states) and the event page (`_app/events/$eventId`); verify with `frontend/tests/events.test.tsx` covering every scenario of "Events list" and "Event page"
-- [ ] 3.2 Add `StatusBadge`, the deliveries list (`_app/deliveries` route with Zod search, filters, "Load more", states) and the failed view (`_app/failed`); verify with `frontend/tests/deliveries-list.test.tsx` covering every scenario of "Deliveries list" and "Failed deliveries view"
+- [x] 3.2 Add `StatusBadge`, the deliveries list (`_app/deliveries` route with Zod search, filters, "Load more", states) and the failed view (`_app/failed`); verify with `frontend/tests/deliveries-list.test.tsx` covering every scenario of "Deliveries list" and "Failed deliveries view"
 
 ## 4. Delivery page and resend
 

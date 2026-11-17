@@ -7,4 +7,7 @@ export const queryKeys = {
     list: (filters: object) => ['events', 'list', filters] as const,
     detail: (id: string) => ['events', 'detail', id] as const,
   },
+  deliveries: {
+    list: (filters: object) => ['deliveries', 'list', filters] as const,
+  },
 }

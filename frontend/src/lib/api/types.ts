@@ -34,3 +34,19 @@ export interface CourierEvent {
 export interface EventDetail extends CourierEvent {
   deliveries: { id: string; endpoint_id: string; status: DeliveryStatus }[]
 }
+
+// An item of `GET /api/v1/deliveries` (CourierWeb.DeliveryJSON, without attempts).
+export interface DeliverySummary {
+  id: string
+  event_id: string
+  event_type: string | null
+  merchant_id: string | null
+  endpoint_id: string
+  status: DeliveryStatus
+  attempt_count: number
+  next_attempt_at: string | null
+  completed_at: string | null
+  resend_of_id: string | null
+  triggered_by: string
+  inserted_at: string
+}

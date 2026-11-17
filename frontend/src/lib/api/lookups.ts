@@ -23,8 +23,10 @@ export function useMerchantName() {
   return (id: string) => merchants.find((m) => m.id === id)?.name ?? shortId(id)
 }
 
+export const useEndpoints = () => useLookup<Endpoint>(queryKeys.endpoints, '/endpoints')
+
 // An endpoint's URL, or its shortened id while unknown.
 export function useEndpointUrl() {
-  const endpoints = useLookup<Endpoint>(queryKeys.endpoints, '/endpoints')
+  const endpoints = useEndpoints()
   return (id: string) => endpoints.find((e) => e.id === id)?.url ?? shortId(id)
 }

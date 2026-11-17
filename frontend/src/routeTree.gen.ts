@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as SignInRouteImport } from './routes/sign-in'
+import { Route as AppFailedRouteImport } from './routes/_app/failed'
 import { Route as AppDeliveriesIndexRouteImport } from './routes/_app/deliveries.index'
 import { Route as AppEventsIndexRouteImport } from './routes/_app/events.index'
 import { Route as AppEventsEventIdRouteImport } from './routes/_app/events.$eventId'
@@ -29,6 +30,11 @@ const SignInRoute = SignInRouteImport.update({
   id: '/sign-in',
   path: '/sign-in',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AppFailedRoute = AppFailedRouteImport.update({
+  id: '/failed',
+  path: '/failed',
+  getParentRoute: () => AppRoute,
 } as any)
 const AppDeliveriesIndexRoute = AppDeliveriesIndexRouteImport.update({
   id: '/deliveries/',
@@ -49,6 +55,7 @@ const AppEventsEventIdRoute = AppEventsEventIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/sign-in': typeof SignInRoute
+  '/failed': typeof AppFailedRoute
   '/events/$eventId': typeof AppEventsEventIdRoute
   '/deliveries/': typeof AppDeliveriesIndexRoute
   '/events/': typeof AppEventsIndexRoute
@@ -56,6 +63,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/sign-in': typeof SignInRoute
+  '/failed': typeof AppFailedRoute
   '/events/$eventId': typeof AppEventsEventIdRoute
   '/deliveries': typeof AppDeliveriesIndexRoute
   '/events': typeof AppEventsIndexRoute
@@ -65,20 +73,34 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_app': typeof AppRouteWithChildren
   '/sign-in': typeof SignInRoute
+  '/_app/failed': typeof AppFailedRoute
   '/_app/events/$eventId': typeof AppEventsEventIdRoute
   '/_app/deliveries/': typeof AppDeliveriesIndexRoute
   '/_app/events/': typeof AppEventsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/sign-in' | '/events/$eventId' | '/deliveries/' | '/events/'
+  fullPaths:
+    | '/'
+    | '/sign-in'
+    | '/failed'
+    | '/events/$eventId'
+    | '/deliveries/'
+    | '/events/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/sign-in' | '/events/$eventId' | '/deliveries' | '/events'
+  to:
+    | '/'
+    | '/sign-in'
+    | '/failed'
+    | '/events/$eventId'
+    | '/deliveries'
+    | '/events'
   id:
     | '__root__'
     | '/'
     | '/_app'
     | '/sign-in'
+    | '/_app/failed'
     | '/_app/events/$eventId'
     | '/_app/deliveries/'
     | '/_app/events/'
@@ -113,6 +135,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SignInRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_app/failed': {
+      id: '/_app/failed'
+      path: '/failed'
+      fullPath: '/failed'
+      preLoaderRoute: typeof AppFailedRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/deliveries/': {
       id: '/_app/deliveries/'
       path: '/deliveries'
@@ -138,12 +167,14 @@ declare module '@tanstack/react-router' {
 }
 
 interface AppRouteChildren {
+  AppFailedRoute: typeof AppFailedRoute
   AppEventsEventIdRoute: typeof AppEventsEventIdRoute
   AppDeliveriesIndexRoute: typeof AppDeliveriesIndexRoute
   AppEventsIndexRoute: typeof AppEventsIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppFailedRoute: AppFailedRoute,
   AppEventsEventIdRoute: AppEventsEventIdRoute,
   AppDeliveriesIndexRoute: AppDeliveriesIndexRoute,
   AppEventsIndexRoute: AppEventsIndexRoute,
