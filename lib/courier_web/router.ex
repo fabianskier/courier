@@ -11,6 +11,10 @@ defmodule CourierWeb.Router do
     plug CourierWeb.Plugs.Authenticate
   end
 
+  pipeline :mcp_read do
+    plug CourierWeb.Plugs.RequireScope, :read
+  end
+
   pipeline :admin do
     plug :fetch_session
     plug :protect_from_forgery
@@ -33,6 +37,13 @@ defmodule CourierWeb.Router do
     resources "/events", EventController, only: [:index, :show, :create]
     resources "/deliveries", DeliveryController, only: [:show]
     post "/deliveries/:id/resend", DeliveryController, :resend
+  end
+
+  # MCP over Streamable HTTP: the same API keys as the API, `read` to connect.
+  scope "/mcp" do
+    pipe_through [:api, :authenticated, :mcp_read]
+
+    forward "/", Anubis.Server.Transport.StreamableHTTP.Plug, server: CourierMCP.Server
   end
 
   # LiveDashboard for operators, in every environment, behind the admin token.

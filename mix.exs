@@ -52,7 +52,8 @@ defmodule Courier.MixProject do
       {:bandit, "~> 1.5"},
       {:oban, "~> 2.24"},
       {:cloak_ecto, "~> 1.3"},
-      {:req, "~> 0.7"}
+      {:req, "~> 0.7"},
+      {:anubis_mcp, "~> 2.2"}
     ]
   end
 

@@ -25,6 +25,10 @@ defmodule Courier.Application do
       Courier.Delivery.QueueManager,
       {DNSCluster, query: Application.get_env(:courier, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Courier.PubSub},
+      # MCP sessions, served through the endpoint at /mcp. Always started:
+      # by default the library starts only when an HTTP server is being
+      # served, but the route exists whenever the endpoint does.
+      {CourierMCP.Server, transport: {:streamable_http, start: true}},
       # Start a worker by calling: Courier.Worker.start_link(arg)
       # {Courier.Worker, arg},
       # Start to serve requests, typically the last entry
