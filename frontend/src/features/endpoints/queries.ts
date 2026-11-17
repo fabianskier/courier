@@ -31,6 +31,36 @@ export function endpointsQueryOptions(filters: EndpointFilters) {
   })
 }
 
+// The forms' event-type filters input:
+// "payment.*, refund.created" -> ["payment.*", "refund.created"].
+export const splitEventTypes = (value: string) =>
+  value
+    .split(',')
+    .map((type) => type.trim())
+    .filter(Boolean)
+
+// What `POST /api/v1/endpoints` accepts; the API fills in what is left out.
+export type NewEndpoint = {
+  merchant_id: string
+  url: string
+  description?: string
+  event_types: string[]
+  retry_window_seconds: number
+  retry_on_4xx: boolean
+  max_concurrency: number
+}
+
+// Creates an endpoint and splits off its signing secret: callers keep the
+// secret in component state only, never in a query or mutation result.
+export async function createEndpoint(body: NewEndpoint) {
+  const { data } = await apiFetch<{ data: EndpointDetail & { secret: string } }>('/endpoints', {
+    method: 'POST',
+    body,
+  })
+  const { secret, ...endpoint } = data
+  return { endpoint, secret }
+}
+
 export function endpointQueryOptions(id: string) {
   return queryOptions({
     queryKey: queryKeys.endpoint(id),

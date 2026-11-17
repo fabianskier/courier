@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { toast } from 'sonner'
 import { LoadError } from '@/components/load-error'
+import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { WriteScopeNote } from '@/components/write-scope-note'
 import { useCanWrite } from '@/features/auth/session'
@@ -55,7 +56,10 @@ export function MerchantDetailView({ merchantId }: { merchantId: string }) {
         <dd>{formatDateTime(merchant.inserted_at)}</dd>
       </dl>
       <MerchantActions merchant={merchant} />
-      <h2 className="font-heading text-lg font-semibold">Endpoints</h2>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <h2 className="font-heading text-lg font-semibold">Endpoints</h2>
+        <NewEndpointLink merchantId={merchant.id} />
+      </div>
       <MerchantEndpoints merchantId={merchant.id} />
     </section>
   )
@@ -85,6 +89,20 @@ function MerchantActions({ merchant }: { merchant: MerchantDetail }) {
         />
       </div>
     </div>
+  )
+}
+
+// The create form with this merchant preselected; `write` keys only (the
+// merchant's actions already say why it is missing otherwise).
+function NewEndpointLink({ merchantId }: { merchantId: string }) {
+  const canWrite = useCanWrite()
+  if (!canWrite) return null
+  return (
+    <Button asChild size="sm">
+      <Link to="/endpoints/new" search={{ merchant_id: merchantId }}>
+        New endpoint
+      </Link>
+    </Button>
   )
 }
 
