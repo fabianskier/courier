@@ -8,6 +8,7 @@ export const queryKeys = {
   merchantList: ['merchants', 'list'] as const,
   merchant: (id: string) => ['merchants', 'detail', id] as const,
   endpointList: (filters: object) => ['endpoints', 'list', filters] as const,
+  endpoint: (id: string) => ['endpoints', 'detail', id] as const,
   events: {
     list: (filters: object) => ['events', 'list', filters] as const,
     detail: (id: string) => ['events', 'detail', id] as const,

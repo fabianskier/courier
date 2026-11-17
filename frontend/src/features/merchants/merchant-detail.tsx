@@ -88,7 +88,7 @@ function MerchantActions({ merchant }: { merchant: MerchantDetail }) {
   )
 }
 
-// Until the endpoint pages exist, each endpoint is shown by its URL.
+// Each endpoint by its URL, linking to its endpoint page.
 function MerchantEndpoints({ merchantId }: { merchantId: string }) {
   const query = useQuery(merchantEndpointsQueryOptions(merchantId))
 
@@ -104,7 +104,13 @@ function MerchantEndpoints({ merchantId }: { merchantId: string }) {
     <ul aria-label="Endpoints" className="flex flex-col gap-2 text-sm">
       {query.data.map((endpoint) => (
         <li key={endpoint.id} className="font-mono break-all">
-          {endpoint.url}
+          <Link
+            to="/endpoints/$endpointId"
+            params={{ endpointId: endpoint.id }}
+            className="underline underline-offset-4"
+          >
+            {endpoint.url}
+          </Link>
         </li>
       ))}
     </ul>

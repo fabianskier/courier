@@ -23,6 +23,21 @@ export interface MerchantDetail extends Merchant {
   updated_at: string
 }
 export type Endpoint = { id: string; merchant_id: string; url: string }
+// One endpoint as `GET /api/v1/endpoints[/:id]` renders it (never with its secret).
+export interface EndpointDetail extends Endpoint {
+  description: string | null
+  event_types: string[]
+  enabled: boolean
+  retry_window_seconds: number
+  retry_on_4xx: boolean
+  max_concurrency: number
+  consecutive_failures: number
+  degraded: boolean
+  degraded_at: string | null
+  previous_secret_expires_at: string | null
+  inserted_at: string
+  updated_at: string
+}
 
 export type DeliveryStatus = 'pending' | 'succeeded' | 'failed' | 'skipped'
 

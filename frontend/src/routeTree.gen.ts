@@ -15,6 +15,8 @@ import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as AppFailedRouteImport } from './routes/_app/failed'
 import { Route as AppDeliveriesIndexRouteImport } from './routes/_app/deliveries.index'
 import { Route as AppDeliveriesDeliveryIdRouteImport } from './routes/_app/deliveries.$deliveryId'
+import { Route as AppEndpointsIndexRouteImport } from './routes/_app/endpoints.index'
+import { Route as AppEndpointsEndpointIdRouteImport } from './routes/_app/endpoints.$endpointId'
 import { Route as AppEventsIndexRouteImport } from './routes/_app/events.index'
 import { Route as AppEventsEventIdRouteImport } from './routes/_app/events.$eventId'
 import { Route as AppMerchantsIndexRouteImport } from './routes/_app/merchants.index'
@@ -49,6 +51,16 @@ const AppDeliveriesDeliveryIdRoute = AppDeliveriesDeliveryIdRouteImport.update({
   path: '/deliveries/$deliveryId',
   getParentRoute: () => AppRoute,
 } as any)
+const AppEndpointsIndexRoute = AppEndpointsIndexRouteImport.update({
+  id: '/endpoints/',
+  path: '/endpoints/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppEndpointsEndpointIdRoute = AppEndpointsEndpointIdRouteImport.update({
+  id: '/endpoints/$endpointId',
+  path: '/endpoints/$endpointId',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppEventsIndexRoute = AppEventsIndexRouteImport.update({
   id: '/events/',
   path: '/events/',
@@ -75,9 +87,11 @@ export interface FileRoutesByFullPath {
   '/sign-in': typeof SignInRoute
   '/failed': typeof AppFailedRoute
   '/deliveries/$deliveryId': typeof AppDeliveriesDeliveryIdRoute
+  '/endpoints/$endpointId': typeof AppEndpointsEndpointIdRoute
   '/events/$eventId': typeof AppEventsEventIdRoute
   '/merchants/$merchantId': typeof AppMerchantsMerchantIdRoute
   '/deliveries/': typeof AppDeliveriesIndexRoute
+  '/endpoints/': typeof AppEndpointsIndexRoute
   '/events/': typeof AppEventsIndexRoute
   '/merchants/': typeof AppMerchantsIndexRoute
 }
@@ -86,9 +100,11 @@ export interface FileRoutesByTo {
   '/sign-in': typeof SignInRoute
   '/failed': typeof AppFailedRoute
   '/deliveries/$deliveryId': typeof AppDeliveriesDeliveryIdRoute
+  '/endpoints/$endpointId': typeof AppEndpointsEndpointIdRoute
   '/events/$eventId': typeof AppEventsEventIdRoute
   '/merchants/$merchantId': typeof AppMerchantsMerchantIdRoute
   '/deliveries': typeof AppDeliveriesIndexRoute
+  '/endpoints': typeof AppEndpointsIndexRoute
   '/events': typeof AppEventsIndexRoute
   '/merchants': typeof AppMerchantsIndexRoute
 }
@@ -99,9 +115,11 @@ export interface FileRoutesById {
   '/sign-in': typeof SignInRoute
   '/_app/failed': typeof AppFailedRoute
   '/_app/deliveries/$deliveryId': typeof AppDeliveriesDeliveryIdRoute
+  '/_app/endpoints/$endpointId': typeof AppEndpointsEndpointIdRoute
   '/_app/events/$eventId': typeof AppEventsEventIdRoute
   '/_app/merchants/$merchantId': typeof AppMerchantsMerchantIdRoute
   '/_app/deliveries/': typeof AppDeliveriesIndexRoute
+  '/_app/endpoints/': typeof AppEndpointsIndexRoute
   '/_app/events/': typeof AppEventsIndexRoute
   '/_app/merchants/': typeof AppMerchantsIndexRoute
 }
@@ -112,9 +130,11 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/failed'
     | '/deliveries/$deliveryId'
+    | '/endpoints/$endpointId'
     | '/events/$eventId'
     | '/merchants/$merchantId'
     | '/deliveries/'
+    | '/endpoints/'
     | '/events/'
     | '/merchants/'
   fileRoutesByTo: FileRoutesByTo
@@ -123,9 +143,11 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/failed'
     | '/deliveries/$deliveryId'
+    | '/endpoints/$endpointId'
     | '/events/$eventId'
     | '/merchants/$merchantId'
     | '/deliveries'
+    | '/endpoints'
     | '/events'
     | '/merchants'
   id:
@@ -135,9 +157,11 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/_app/failed'
     | '/_app/deliveries/$deliveryId'
+    | '/_app/endpoints/$endpointId'
     | '/_app/events/$eventId'
     | '/_app/merchants/$merchantId'
     | '/_app/deliveries/'
+    | '/_app/endpoints/'
     | '/_app/events/'
     | '/_app/merchants/'
   fileRoutesById: FileRoutesById
@@ -192,6 +216,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppDeliveriesDeliveryIdRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/endpoints/': {
+      id: '/_app/endpoints/'
+      path: '/endpoints'
+      fullPath: '/endpoints/'
+      preLoaderRoute: typeof AppEndpointsIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/endpoints/$endpointId': {
+      id: '/_app/endpoints/$endpointId'
+      path: '/endpoints/$endpointId'
+      fullPath: '/endpoints/$endpointId'
+      preLoaderRoute: typeof AppEndpointsEndpointIdRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/events/': {
       id: '/_app/events/'
       path: '/events'
@@ -226,9 +264,11 @@ declare module '@tanstack/react-router' {
 interface AppRouteChildren {
   AppFailedRoute: typeof AppFailedRoute
   AppDeliveriesDeliveryIdRoute: typeof AppDeliveriesDeliveryIdRoute
+  AppEndpointsEndpointIdRoute: typeof AppEndpointsEndpointIdRoute
   AppEventsEventIdRoute: typeof AppEventsEventIdRoute
   AppMerchantsMerchantIdRoute: typeof AppMerchantsMerchantIdRoute
   AppDeliveriesIndexRoute: typeof AppDeliveriesIndexRoute
+  AppEndpointsIndexRoute: typeof AppEndpointsIndexRoute
   AppEventsIndexRoute: typeof AppEventsIndexRoute
   AppMerchantsIndexRoute: typeof AppMerchantsIndexRoute
 }
@@ -236,9 +276,11 @@ interface AppRouteChildren {
 const AppRouteChildren: AppRouteChildren = {
   AppFailedRoute: AppFailedRoute,
   AppDeliveriesDeliveryIdRoute: AppDeliveriesDeliveryIdRoute,
+  AppEndpointsEndpointIdRoute: AppEndpointsEndpointIdRoute,
   AppEventsEventIdRoute: AppEventsEventIdRoute,
   AppMerchantsMerchantIdRoute: AppMerchantsMerchantIdRoute,
   AppDeliveriesIndexRoute: AppDeliveriesIndexRoute,
+  AppEndpointsIndexRoute: AppEndpointsIndexRoute,
   AppEventsIndexRoute: AppEventsIndexRoute,
   AppMerchantsIndexRoute: AppMerchantsIndexRoute,
 }

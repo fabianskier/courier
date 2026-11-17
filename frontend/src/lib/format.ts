@@ -20,5 +20,15 @@ export function fromLocalInput(value: string) {
   return value && !Number.isNaN(date.getTime()) ? date.toISOString() : undefined
 }
 
+// A retry window in seconds: 86,400 -> "24 hours", 5,400 -> "1.5 hours", 60 -> "1 minute".
+export function formatRetryWindow(seconds: number) {
+  if (seconds < 3600) {
+    const minutes = Math.round((seconds / 60) * 100) / 100
+    return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`
+  }
+  const hours = Math.round((seconds / 3600) * 100) / 100
+  return `${hours} ${hours === 1 ? 'hour' : 'hours'}`
+}
+
 // An id that could not be named: its first eight characters.
 export const shortId = (id: string) => id.slice(0, 8)
