@@ -45,3 +45,18 @@ When the run ends the simulator SHALL print how many requests were answered `202
 #### Scenario: Summary printed
 - **WHEN** a run gets three `202`, one `200`, one `422` and one connection error
 - **THEN** the output says 3 new, 1 repeat, 1 rejected with status 422 and 1 failed, and does not contain the token
+
+### Requirement: Release simulator command
+The release SHALL provide a `bin/simulate` command that takes the options of `mix courier.simulate`, with the same defaults, validation and messages, and sends the same requests, without Mix. It MUST print the run summary to standard output and exit with status 0; with missing or invalid options it MUST print what is wrong to standard error, send nothing and exit with status 1. It MUST NOT print the token.
+
+#### Scenario: Release run prints the summary
+- **WHEN** the release command runs with a token, a merchant, `--count 3` and `--repeat-share 0` against a stubbed API that answers `202`
+- **THEN** the stub receives 3 requests, standard output says 3 requests were sent and 3 were new, the output does not contain the token and the status is 0
+
+#### Scenario: Release run rejects invalid options
+- **WHEN** the release command runs with a token but no `--merchant`
+- **THEN** standard error says that a merchant is required, no request is sent and the status is 1
+
+#### Scenario: Release run reads the token from the environment
+- **WHEN** the release command runs without `--token` and `COURIER_INGEST_TOKEN` is set
+- **THEN** the requests carry that token as a Bearer key
