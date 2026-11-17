@@ -19,9 +19,10 @@ export const Route = createFileRoute('/_app')({
   component: AppLayout,
 })
 
-// Events and Failed join when their pages exist (tasks 3.1 and 3.2).
+// Failed joins when its page exists (task 3.2).
 const links = [
   { to: '/', label: 'Overview' },
+  { to: '/events', label: 'Events' },
   { to: '/deliveries', label: 'Deliveries' },
 ] as const
 
