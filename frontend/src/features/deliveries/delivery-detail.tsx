@@ -10,6 +10,7 @@ import type { DeliveryDetail } from '@/lib/api/types'
 import { formatDateTime, shortId } from '@/lib/format'
 import { AttemptTimeline } from './attempt-timeline'
 import { deliveryQueryOptions } from './queries'
+import { ResendButton } from './resend-button'
 import { StatusBadge } from './status-badge'
 
 const link = 'font-mono underline underline-offset-4'
@@ -77,6 +78,11 @@ export function DeliveryDetailView({ deliveryId }: { deliveryId: string }) {
         )}
       </dl>
       <DeliveryState delivery={delivery} />
+      <ResendButton
+        key={delivery.id}
+        delivery={delivery}
+        endpointUrl={endpointUrl(delivery.endpoint_id)}
+      />
       {delivery.status !== 'skipped' && (
         <>
           <h2 className="font-heading text-lg font-semibold">Attempts</h2>
