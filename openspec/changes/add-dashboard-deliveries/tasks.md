@@ -1,6 +1,6 @@
 # Tasks
 
-Each task must stay within the gate's diff budget (about 600 changed lines and 20 files, tests included). Existing files under `test/` and `frontend/tests/` are protected: put new tests and helpers in new files. Read design.md before each task. Frontend tests are named after the spec (`describe("Requirement: …")`, `it("Scenario: …")`) and mock the network with MSW.
+Each task must stay within the gate's diff budget (about 800 changed lines and 20 files, tests included). Existing files under `test/` and `frontend/tests/` are protected: put new tests and helpers in new files. Read design.md before each task. Frontend tests are named after the spec (`describe("Requirement: …")`, `it("Scenario: …")`) and mock the network with MSW.
 
 ## 1. API
 

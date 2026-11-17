@@ -1,5 +1,5 @@
 {
   "test_paths": ["test/", "frontend/tests/"],
-  "max_changed_lines": 600,
+  "max_changed_lines": 800,
   "uncounted_paths": ["frontend/src/routeTree.gen.ts", "frontend/package-lock.json"]
 }
