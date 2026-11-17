@@ -35,7 +35,7 @@ defmodule CourierWeb.Router do
     post "/endpoints/:id/rotate_secret", EndpointController, :rotate_secret
 
     resources "/events", EventController, only: [:index, :show, :create]
-    resources "/deliveries", DeliveryController, only: [:show]
+    resources "/deliveries", DeliveryController, only: [:index, :show]
     post "/deliveries/:id/resend", DeliveryController, :resend
   end
 

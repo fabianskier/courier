@@ -39,6 +39,13 @@ defmodule CourierWeb.FallbackController do
     })
   end
 
+  def call(conn, {:error, {:invalid_param, name}}) when is_binary(name) do
+    respond(conn, :unprocessable_entity, %{
+      code: "invalid",
+      message: "`#{name}` is invalid."
+    })
+  end
+
   def call(conn, {:error, :merchant_disabled}) do
     respond(conn, :unprocessable_entity, %{
       code: "merchant_disabled",

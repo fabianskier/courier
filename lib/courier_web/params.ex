@@ -21,6 +21,37 @@ defmodule CourierWeb.Params do
     end
   end
 
+  @type time_range :: %{since: DateTime.t() | nil, until: DateTime.t() | nil}
+
+  @doc """
+  Parses the optional `since` and `until` params as ISO 8601 timestamps with
+  a time zone offset. Returns `{:error, {:invalid_param, name}}` for the first
+  value that is not one.
+  """
+  @spec time_range(map()) :: {:ok, time_range()} | {:error, {:invalid_param, String.t()}}
+  def time_range(params) when is_map(params) do
+    with {:ok, since} <- parse_datetime(params, "since"),
+         {:ok, until} <- parse_datetime(params, "until") do
+      {:ok, %{since: since, until: until}}
+    end
+  end
+
+  defp parse_datetime(params, name) do
+    case Map.get(params, name) do
+      nil ->
+        {:ok, nil}
+
+      value when is_binary(value) ->
+        case DateTime.from_iso8601(value) do
+          {:ok, datetime, _offset} -> {:ok, datetime}
+          {:error, _reason} -> {:error, {:invalid_param, name}}
+        end
+
+      _value ->
+        {:error, {:invalid_param, name}}
+    end
+  end
+
   defp parse_limit(nil), do: {:ok, @default_limit}
 
   defp parse_limit(limit) when is_integer(limit) and limit in 1..@max_limit, do: {:ok, limit}
