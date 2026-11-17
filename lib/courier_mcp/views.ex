@@ -7,6 +7,7 @@ defmodule CourierMCP.Views do
 
   alias Courier.Audit.Attempt
   alias Courier.Delivery.Delivery
+  alias Courier.Endpoints.Endpoint
   alias Courier.Ingestion.Event
   alias CourierMCP.Untrusted
 
@@ -66,6 +67,22 @@ defmodule CourierMCP.Views do
       triggered_by: delivery.triggered_by,
       resend_of_id: delivery.resend_of_id,
       created_at: iso8601(delivery.inserted_at)
+    }
+  end
+
+  @doc """
+  An endpoint's health and the number of its deliveries by status. No URL and
+  no secrets.
+  """
+  @spec endpoint_health(Endpoint.t(), map()) :: map()
+  def endpoint_health(%Endpoint{} = endpoint, deliveries_by_status) do
+    %{
+      id: endpoint.id,
+      enabled: endpoint.enabled,
+      consecutive_failures: endpoint.consecutive_failures,
+      degraded: not is_nil(endpoint.degraded_at),
+      degraded_at: iso8601(endpoint.degraded_at),
+      deliveries_by_status: deliveries_by_status
     }
   end
 

@@ -10,7 +10,7 @@ Each task must stay within the gate's diff budget (about 600 changed lines, test
 
 - [x] 2.1 Add `Courier.Delivery.list_deliveries/1` and `Courier.Delivery.count_by_status/1` as in design.md; verify with new tests in `test/courier/delivery_list_test.exs` (filters by status, endpoint and event, newest first, limit and cursor, invalid cursor, counts per status)
 - [x] 2.2 Add the `get_delivery`, `list_deliveries` and `list_failed_deliveries` tools with their views; verify with new tests in `test/courier_mcp/delivery_tools_test.exs`: "Scenario: Delivery with attempts", "Scenario: Unknown delivery", "Scenario: Filtered by status", "Scenario: Pages follow the cursor", "Scenario: Limit above the maximum rejected", "Scenario: Invalid cursor" and "Scenario: Only failed deliveries"
-- [ ] 2.3 Add the `get_endpoint_health` tool; verify with new tests in `test/courier_mcp/endpoint_health_test.exs`: "Scenario: Degraded endpoint" and "Scenario: Unknown endpoint"
+- [x] 2.3 Add the `get_endpoint_health` tool; verify with new tests in `test/courier_mcp/endpoint_health_test.exs`: "Scenario: Degraded endpoint" and "Scenario: Unknown endpoint"
 
 ## 3. Resend and audit
 

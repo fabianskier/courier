@@ -16,4 +16,5 @@ defmodule CourierMCP.Server do
   component(CourierMCP.Tools.GetDelivery)
   component(CourierMCP.Tools.ListDeliveries)
   component(CourierMCP.Tools.ListFailedDeliveries)
+  component(CourierMCP.Tools.GetEndpointHealth)
 end
