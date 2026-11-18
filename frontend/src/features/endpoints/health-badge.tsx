@@ -10,7 +10,7 @@ export function HealthBadge({ degraded, consecutiveFailures }: Props) {
   const Icon = degraded ? TriangleAlert : CircleCheck
   return (
     <span className="inline-flex flex-wrap items-center gap-2">
-      <Badge variant={degraded ? 'destructive' : 'outline'}>
+      <Badge variant={degraded ? 'destructive' : 'success'}>
         <Icon aria-hidden="true" />
         {degraded ? 'Degraded' : 'Healthy'}
       </Badge>

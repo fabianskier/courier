@@ -2,11 +2,13 @@ import { CircleCheck, CircleMinus, CircleX, Clock, type LucideIcon } from 'lucid
 import { Badge } from '@/components/ui/badge'
 import type { DeliveryStatus } from '@/lib/api/types'
 
-const looks: Record<DeliveryStatus, { icon: LucideIcon; variant: 'outline' | 'destructive' }> = {
-  pending: { icon: Clock, variant: 'outline' },
-  succeeded: { icon: CircleCheck, variant: 'outline' },
+type Variant = 'success' | 'destructive' | 'warning' | 'secondary'
+
+const looks: Record<DeliveryStatus, { icon: LucideIcon; variant: Variant }> = {
+  pending: { icon: Clock, variant: 'warning' },
+  succeeded: { icon: CircleCheck, variant: 'success' },
   failed: { icon: CircleX, variant: 'destructive' },
-  skipped: { icon: CircleMinus, variant: 'outline' },
+  skipped: { icon: CircleMinus, variant: 'secondary' },
 }
 
 // A delivery's status as an icon and text, never by color alone.
