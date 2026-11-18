@@ -84,7 +84,7 @@ Phoenix serves `assets/`, `favicon.ico` and `robots.txt` with `Plug.Static`, and
 
 `frontend/` checks, also in `.smelt/checks.sh`: `npm run format:check` (oxfmt), `npm run lint` (oxlint, warnings fail), `npm run typecheck` (`tsc -b`) and `npm run test` (Vitest); `npm run check` runs all four.
 
-**Routes** (file routes in `src/routes/`). `/sign-in` and the overview `/` are public; every other page sits under the pathless layout route `_app`, whose `beforeLoad` redirects to `/sign-in?redirect=<path>` when no key is stored and loads `GET /api/v1/me` (cached) so the layout can show the key's name and scopes, the navigation (Overview, Events, Deliveries, Failed) and sign-out.
+**Routes** (file routes in `src/routes/`). `/sign-in` and the overview `/` are public; every other page sits under the pathless layout route `_app`, whose `beforeLoad` redirects to `/sign-in?redirect=<path>` when no key is stored and loads `GET /api/v1/me` (cached) so the layout can show the key's name and scopes, the navigation (Overview, Events, Deliveries, Failed, Merchants, Endpoints) and sign-out.
 
 | Route | Page |
 |---|---|
@@ -93,6 +93,15 @@ Phoenix serves `assets/`, `favicon.ico` and `robots.txt` with `Plug.Static`, and
 | `/deliveries` | Deliveries list: filters status, merchant, endpoint, event type and time range |
 | `/failed` | The deliveries list with `status=failed` fixed |
 | `/deliveries/$deliveryId` | Delivery summary, attempt timeline (time, duration, status code, error, response body cut at 500 characters), links to the delivery it resends and to its resends, and the resend button |
+| `/merchants` | Merchants list with "Load more" and a create form |
+| `/merchants/$merchantId` | Merchant page: rename, disable or enable, its endpoints and "New endpoint" |
+| `/endpoints` | Endpoints list: filters merchant and "degraded only" (in the URL search params); each row shows URL, merchant, enabled state and health as text (degraded, consecutive failures) |
+| `/endpoints/new` | Create form (merchant preselected from the search): URL, description, event-type filters, retry window, retry on 4xx and concurrency |
+| `/endpoints/$endpointId` | Endpoint page: settings, health, secret rotation state and overlap, link to its deliveries; edit form, enable/disable and secret rotation |
+
+**Merchants and endpoints.** Forms use React Hook Form and Zod; `apiFetch` sends JSON bodies (`POST`, `PATCH`) and `ApiError.details` carries the fields of a `422`, which `applyApiErrors` shows next to their inputs. Creating, editing, enabling, disabling and rotating are offered only to keys with `write`; read keys see the pages without those actions. After every change the merchants and endpoints lookups are invalidated, so names and URLs stay current. The API has no delete, so the dashboard has none either.
+
+**Secrets shown once.** The `whsec_` secret returned when an endpoint is created or rotated is rendered by `SecretReveal` with a warning and a copy action, together with when the previous secret stops signing after a rotation. It is never cached, stored or put in the URL, so leaving the page loses it. Rotation asks for confirmation first.
 
 **Sign-in.** The form checks the key with `GET /api/v1/me`; only a `200` stores it, in `sessionStorage` under `courier.apiKey` (as the API keys ADR decides), and sign-out removes it. A `401` on any later request clears the key and the query cache and goes back to `/sign-in?reason=expired&redirect=<path>`.
 

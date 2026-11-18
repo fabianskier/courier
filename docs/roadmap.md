@@ -62,5 +62,7 @@ Steps 1 to 8 give a complete backend that can be demoed with `curl`, the demo re
 
 - Step 10, `add-dashboard-deliveries`: `GET /api/v1/deliveries` (filters, time range, cursor) and `since`/`until` on `GET /api/v1/events`, with `inserted_at`, `event_type` and `merchant_id` on a delivery; in the SPA, sign-in with an API key kept in session storage, the events and deliveries lists with filters and "Load more", the event page, the failed view, the delivery page with its attempt timeline and resend links, and the resend button with confirmation (`write` scope only). Documented in `docs/architecture.md` ("Dashboard SPA", "Listing deliveries") and in the README ("Local demo", step 9).
 
+- Step 11, `add-dashboard-endpoints`: in the SPA, the merchants list and page (create, rename, disable/enable), the endpoints list with merchant and "degraded only" filters, the endpoint page with health and secret overlap, the create form, editing, disable/enable and secret rotation, secrets shown once (never cached or stored), and the `write` scope rule; `apiFetch` with JSON bodies and `ApiError.details`. Documented in `docs/architecture.md` ("Dashboard SPA") and in the README ("Local demo", step 10).
+
 **Next:**
-1. Step 11, `add-dashboard-endpoints`: merchants and endpoints management, secret shown once, degraded endpoints.
+1. Step 12, `add-dashboard-live-updates`: PubSub broadcasts, `DashboardChannel`, query invalidation, reconnect.

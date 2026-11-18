@@ -14,7 +14,7 @@ Each task must stay within the gate's diff budget (about 800 changed lines and 2
 
 ## 3. Docs
 
-- [ ] 3.1 Update `docs/architecture.md` ("Dashboard SPA": the merchants and endpoints routes, forms and secrets shown once), add a README step to the local demo (open "Endpoints", turn on "degraded only", open `harbor-fail`, rotate its secret; note that dashboard-created endpoints are not registered with the demo receiver), and mark step 11 done in `docs/roadmap.md` with step 12 next; verify `sh .smelt/checks.sh` and `openspec validate add-dashboard-endpoints --strict` pass and every scenario in `specs/` has a test with the same name
+- [x] 3.1 Update `docs/architecture.md` ("Dashboard SPA": the merchants and endpoints routes, forms and secrets shown once), add a README step to the local demo (open "Endpoints", turn on "degraded only", open `harbor-fail`, rotate its secret; note that dashboard-created endpoints are not registered with the demo receiver), and mark step 11 done in `docs/roadmap.md` with step 12 next; verify `sh .smelt/checks.sh` and `openspec validate add-dashboard-endpoints --strict` pass and every scenario in `specs/` has a test with the same name
 
 ## Workflow follow-up
 

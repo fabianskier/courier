@@ -86,6 +86,8 @@ The resend answers `202` with a new delivery, linked to the old one by `resend_o
 
 **9. Do it in the dashboard.** Open <http://localhost:4000> (after `npm run build --prefix frontend`; or <http://localhost:5173> with `npm run dev --prefix frontend`), choose **Sign in** and paste the `demo` key. Open **Failed** to list failed deliveries, open one of `harbor-fail` to see its attempt timeline, and press **Resend**. Confirm the dialog: the new delivery opens, linked to the old one, and succeeds once the endpoint points at `/ok` (step 8).
 
+**10. Find a degraded endpoint and rotate its secret.** In the dashboard open **Endpoints**, turn on **Degraded only** and open `harbor-fail` (it shows as degraded once it has failed enough consecutive attempts; until then the filter is empty). Press **Rotate secret** and confirm: the new secret is shown once, with the time the previous one stops signing. Endpoints created in the dashboard are not registered with the demo receiver, so it cannot verify their signatures; it only knows the secrets the seeds registered.
+
 **With Docker.** Only Docker is needed; this replaces steps 1 to 4.
 
 ```sh
