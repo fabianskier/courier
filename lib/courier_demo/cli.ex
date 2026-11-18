@@ -2,16 +2,17 @@ defmodule CourierDemo.CLI do
   @moduledoc """
   What the demo's command-line entry points share: the simulator's option
   parsing, validation and summary, used by `mix courier.simulate` and by the
-  release's `bin/simulate`.
+  release's `bin/simulate`, and the load test's run, used by
+  `mix courier.load` and `bin/load`.
 
-  `simulate/1` is the release entry point. It needs no Mix and no running
-  courier application, and returns the exit status instead of halting.
+  `simulate/1` and `load/1` are release entry points. They need no Mix and no
+  running courier application, and return the exit status instead of halting.
 
   `seed/0` is the release entry point of the demo seeds (`bin/seed`). It runs
   inside the running release.
   """
 
-  alias CourierDemo.{Seeds, Simulator}
+  alias CourierDemo.{Load, Seeds, Simulator}
 
   @switches [
     merchant: :keep,
@@ -107,6 +108,46 @@ defmodule CourierDemo.CLI do
       {:error, messages} ->
         Enum.each(messages, &IO.puts(:stderr, &1))
         IO.puts(:stderr, "Usage: bin/simulate --merchant ID [--merchant ID...] [options]")
+        1
+    end
+  end
+
+  @doc """
+  Runs the load test described by a valid `config` (`CourierDemo.Load`) and
+  returns the report lines.
+
+  Starts `:req` and only `Courier.Repo` (with a pool of 2), not the rest of
+  the application, so it can run next to a running courier. A repo that is
+  already running is used as is.
+  """
+  @spec run_load(Load.config()) :: [String.t()]
+  def run_load(config) do
+    {:ok, _apps} = Application.ensure_all_started(:ssl)
+    {:ok, _apps} = Application.ensure_all_started(:req)
+
+    {:ok, lines, _apps} =
+      Ecto.Migrator.with_repo(Courier.Repo, fn _repo -> Load.run(config) end, pool_size: 2)
+
+    lines
+  end
+
+  @doc """
+  The release entry point of the load test (`bin/load`).
+
+  Prints the report to standard output and returns `0`; with missing or
+  invalid options prints what is wrong and a usage line to standard error,
+  sends nothing and returns `1`.
+  """
+  @spec load([String.t()]) :: 0 | 1
+  def load(args) do
+    case Load.parse(args) do
+      {:ok, config} ->
+        config |> run_load() |> Enum.each(&IO.puts/1)
+        0
+
+      {:error, messages} ->
+        Enum.each(messages, &IO.puts(:stderr, &1))
+        IO.puts(:stderr, "Usage: bin/load --merchant ID [--merchant ID...] [options]")
         1
     end
   end

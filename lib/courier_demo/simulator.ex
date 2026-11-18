@@ -23,11 +23,12 @@ defmodule CourierDemo.Simulator do
   @type rand :: (-> float())
 
   @type tally :: %{
-          new: non_neg_integer(),
-          repeats: non_neg_integer(),
-          rejected: %{optional(pos_integer()) => pos_integer()},
-          failed: non_neg_integer(),
-          elapsed_ms: non_neg_integer()
+          required(:new) => non_neg_integer(),
+          required(:repeats) => non_neg_integer(),
+          required(:rejected) => %{optional(pos_integer()) => pos_integer()},
+          required(:failed) => non_neg_integer(),
+          required(:elapsed_ms) => non_neg_integer(),
+          optional(:latencies_ms) => [non_neg_integer()]
         }
 
   @doc "The event types used when none are given."
@@ -108,6 +109,9 @@ defmodule CourierDemo.Simulator do
     * `:token` - API key with the `ingest` scope (required)
     * `:url` - courier's base URL (default `http://localhost:4000`)
     * `:rate` - requests per second (default `5`)
+    * `:latencies` - when `true`, times every request around `Req.post/3`
+      and adds `:latencies_ms` (a list of milliseconds, in completion order)
+      to the tally (default `false`)
 
   The tally counts `202` answers as `:new`, `200` as `:repeats`, any other
   status under `:rejected` (by status) and requests without a response as
@@ -125,17 +129,32 @@ defmodule CourierDemo.Simulator do
       |> Task.async_stream(
         fn {request, i} ->
           wait_until(start + round(i * interval_ms))
-          send_request(req, request)
+          timed_request(req, request)
         end,
         max_concurrency: @max_concurrency,
         ordered: false,
         timeout: :infinity
       )
-      |> Enum.reduce(%{new: 0, repeats: 0, rejected: %{}, failed: 0}, fn {:ok, result}, tally ->
-        count(tally, result)
-      end)
+      |> Enum.reduce(
+        %{new: 0, repeats: 0, rejected: %{}, failed: 0, latencies_ms: []},
+        fn {:ok, {result, latency_ms}}, tally ->
+          tally |> count(result) |> Map.update!(:latencies_ms, &[latency_ms | &1])
+        end
+      )
+
+    tally =
+      if Keyword.get(opts, :latencies, false),
+        do: Map.update!(tally, :latencies_ms, &Enum.reverse/1),
+        else: Map.delete(tally, :latencies_ms)
 
     Map.put(tally, :elapsed_ms, System.monotonic_time(:millisecond) - start)
+  end
+
+  # The result of one request and its duration in whole milliseconds.
+  defp timed_request(req, request) do
+    sent = System.monotonic_time(:microsecond)
+    result = send_request(req, request)
+    {result, div(System.monotonic_time(:microsecond) - sent + 500, 1000)}
   end
 
   defp build_req(opts) do

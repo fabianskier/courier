@@ -4,7 +4,7 @@ Each task must stay within the gate's diff budget (about 800 changed lines and 2
 
 ## 1. Load command
 
-- [ ] 1.1 Add the `:latencies` option to `CourierDemo.Simulator.run/2`, `CourierDemo.Load` (options, sending, waiting, the delivery query, the report) and `CourierDemo.Load.Stats`, `CourierDemo.CLI.load/1`, `mix courier.load` and the executable `rel/overlays/bin/load`, as in design.md; verify with new tests in `test/courier_demo/load_stats_test.exs` and `test/courier_demo/load_test.exs` covering every scenario of `specs/load-test/spec.md`
+- [x] 1.1 Add the `:latencies` option to `CourierDemo.Simulator.run/2`, `CourierDemo.Load` (options, sending, waiting, the delivery query, the report) and `CourierDemo.Load.Stats`, `CourierDemo.CLI.load/1`, `mix courier.load` and the executable `rel/overlays/bin/load`, as in design.md; verify with new tests in `test/courier_demo/load_stats_test.exs` and `test/courier_demo/load_test.exs` covering every scenario of `specs/load-test/spec.md`
 
 ## 2. README
 
