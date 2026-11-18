@@ -1,4 +1,5 @@
 import { createRootRouteWithContext, Link, Outlet, useMatches } from '@tanstack/react-router'
+import { ModeToggle } from '@/components/mode-toggle'
 import { Toaster } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { readKey } from '@/lib/session'
@@ -34,6 +35,9 @@ function RootLayout() {
                 <Link to="/" className="font-heading text-lg font-semibold">
                   Courier
                 </Link>
+                <div className="ml-auto">
+                  <ModeToggle />
+                </div>
               </nav>
             </header>
             <main className="mx-auto max-w-6xl px-6 py-8">

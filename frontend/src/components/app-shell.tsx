@@ -2,6 +2,7 @@ import { Link } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
 import { AppSidebar } from '@/components/app-sidebar'
 import { LiveStatus } from '@/components/live-status'
+import { ModeToggle } from '@/components/mode-toggle'
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -15,7 +16,8 @@ import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/s
 import { useLiveUpdates } from '@/lib/live/use-live-updates'
 
 // The signed-in layout: the sidebar, and a header with its toggle, the
-// breadcrumb of `title` and the live status. Needs `/me` loaded.
+// breadcrumb of `title`, the live status and the
+// mode selector. Needs `/me` loaded.
 export function AppShell({ title, children }: { title: string; children: ReactNode }) {
   const liveStatus = useLiveUpdates()
 
@@ -39,8 +41,9 @@ export function AppShell({ title, children }: { title: string; children: ReactNo
               </BreadcrumbItem>
             </BreadcrumbList>
           </Breadcrumb>
-          <div className="ml-auto text-sm">
+          <div className="ml-auto flex items-center gap-2 text-sm">
             <LiveStatus status={liveStatus} />
+            <ModeToggle />
           </div>
         </header>
         <div className="flex flex-1 flex-col gap-8 p-6">{children}</div>
