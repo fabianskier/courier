@@ -15,6 +15,12 @@ defmodule CourierWeb.Endpoint do
     websocket: [connect_info: [session: @session_options]],
     longpoll: [connect_info: [session: @session_options]]
 
+  # Dashboard live updates: the API key travels as the WebSocket auth token
+  # (Sec-WebSocket-Protocol header), never in the URL.
+  socket "/socket", CourierWeb.DashboardSocket,
+    websocket: [auth_token: true],
+    longpoll: false
+
   # Serve at "/" the static files from "priv/static" directory.
   #
   # When code reloading is disabled (e.g., in production),

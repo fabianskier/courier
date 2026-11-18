@@ -5,7 +5,7 @@ Each task must stay within the gate's diff budget (about 800 changed lines and 2
 ## 1. Backend
 
 - [x] 1.1 Add `Courier.Notices` and call it after commit in ingestion, attempt outcomes, the window sweeper, resend, endpoint health transitions, and the endpoint and merchant create/update/rotate functions, as in design.md; verify with new tests in `test/courier/notices_test.exs` covering every scenario of "Change notices" and "Notices carry ids only"
-- [ ] 1.2 Add `CourierWeb.DashboardSocket` (auth token, `read` scope), `CourierWeb.DashboardChannel` (four topics, PubSub forwarding, the periodic key check) and the `/socket` line in `CourierWeb.Endpoint`, plus `test/support/channel_case.ex`; verify with new tests in `test/courier_web/channels/dashboard_socket_test.exs` and `dashboard_channel_test.exs` covering every scenario of "Authenticated dashboard socket" and "Dashboard topics"
+- [x] 1.2 Add `CourierWeb.DashboardSocket` (auth token, `read` scope), `CourierWeb.DashboardChannel` (four topics, PubSub forwarding, the periodic key check) and the `/socket` line in `CourierWeb.Endpoint`, plus `test/support/channel_case.ex`; verify with new tests in `test/courier_web/channels/dashboard_socket_test.exs` and `dashboard_channel_test.exs` covering every scenario of "Authenticated dashboard socket" and "Dashboard topics"
 
 ## 2. Frontend
 

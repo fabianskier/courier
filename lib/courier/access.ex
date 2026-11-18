@@ -81,6 +81,20 @@ defmodule Courier.Access do
 
   def authenticate(_token), do: {:error, :unauthorized}
 
+  @doc """
+  Reloads the key with `id` and returns it while it is still active.
+
+  Long-lived connections use it to notice a revocation made by another
+  process (for example `mix courier.keys.revoke`).
+  """
+  @spec reload_active_key(Ecto.UUID.t()) :: {:ok, ApiKey.t()} | {:error, :unauthorized}
+  def reload_active_key(id) when is_binary(id) do
+    case Repo.get(ApiKey, id) do
+      %ApiKey{revoked_at: nil} = key -> {:ok, key}
+      _revoked_or_missing -> {:error, :unauthorized}
+    end
+  end
+
   @doc "Whether `key` holds `scope` (an atom or string). Scopes are independent."
   @spec has_scope?(ApiKey.t(), atom() | String.t()) :: boolean()
   def has_scope?(%ApiKey{scopes: scopes}, scope) when is_atom(scope),
