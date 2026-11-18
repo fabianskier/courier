@@ -9,6 +9,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar'
+import { isMerchantList, useSelectedMerchant } from '@/lib/merchant-context'
 
 type Page = {
   to: '/' | '/events' | '/deliveries' | '/failed' | '/endpoints' | '/merchants'
@@ -38,8 +39,11 @@ const groups: { label: string; pages: Page[] }[] = [
 
 // One page link; the router marks the current one (`aria-current="page"`),
 // detail pages included under their list.
+// The four lists carry the switcher's merchant as their `merchant_id` filter.
 function PageItem({ page }: { page: Page }) {
   const Icon = page.icon
+  const merchantId = useSelectedMerchant()
+  const search = isMerchantList(page.to) && merchantId ? { merchant_id: merchantId } : {}
   return (
     <SidebarMenuItem>
       <SidebarMenuButton
@@ -47,7 +51,11 @@ function PageItem({ page }: { page: Page }) {
         tooltip={page.label}
         className="data-[status=active]:bg-sidebar-accent data-[status=active]:font-medium data-[status=active]:text-sidebar-accent-foreground"
       >
-        <Link to={page.to} activeOptions={{ exact: page.to === '/', includeSearch: false }}>
+        <Link
+          to={page.to}
+          search={search}
+          activeOptions={{ exact: page.to === '/', includeSearch: false }}
+        >
           <Icon aria-hidden="true" />
           <span>{page.label}</span>
         </Link>

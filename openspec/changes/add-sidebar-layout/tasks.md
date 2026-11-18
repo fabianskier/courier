@@ -5,7 +5,7 @@ Each task must stay within the gate's diff budget (about 800 changed lines and 2
 ## 1. Sidebar
 
 - [x] 1.1 Add `AppShell` and `AppSidebar` (`NavMain` with the two collapsible groups, `NavKey` with the key and "Sign out"), the header with the toggle, breadcrumb and live status, use the shell in the `_app` layout and in the signed-in overview, and hide the root header when the shell renders; verify with `frontend/tests/app-shell.test.tsx` covering every scenario of "Sidebar layout", and that every existing frontend test still passes
-- [ ] 1.2 Add `MerchantSwitcher` and `src/lib/merchant-context.ts`, and carry the selected merchant in the sidebar's list links and on the current list page; verify with `frontend/tests/merchant-switcher.test.tsx` covering every scenario of "Merchant switcher"
+- [x] 1.2 Add `MerchantSwitcher` and `src/lib/merchant-context.ts`, and carry the selected merchant in the sidebar's list links and on the current list page; verify with `frontend/tests/merchant-switcher.test.tsx` covering every scenario of "Merchant switcher"
 
 ## 2. Docs
 
