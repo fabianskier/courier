@@ -754,6 +754,7 @@ Operators see what courier is doing without reading the database (FR-33, FR-34):
 | `[:courier, :delivery, :retry_scheduled]` | `delay_seconds` | `delivery_id`, `endpoint_id`, `attempt` | `record_attempt/3` |
 | `[:courier, :endpoint, :degraded]`, `[:courier, :endpoint, :recovered]` | see "Endpoint health" | `endpoint_id`, `merchant_id` | `record_attempt/3` |
 | `[:courier, :queue, :lag]` | `seconds`, `available` | `queue` | `Courier.Delivery.QueueLag`, every 10 s |
+| `[:courier, :retention, :pruned]` | `events`, `deliveries`, `attempts` (rows deleted) | `days` | `Courier.Retention.Worker`, once per daily run |
 
 `since_created_ms` is the time from the delivery's creation to the start of the attempt; for attempt 1 it is the time to first attempt (the NFR target). `total_ms` is the time from creation to `completed_at`. The attempt events come from one `:telemetry.span/3`, so `start` and `stop` (or `exception`) always pair up.
 
@@ -776,6 +777,7 @@ Operators see what courier is doing without reading the database (FR-33, FR-34):
 | `courier.endpoint.degraded.consecutive_failures` | counter | |
 | `courier.endpoint.recovered.count` | counter | |
 | `courier.queue.lag.seconds`, `courier.queue.lag.available` | last value | `queue` |
+| `courier.retention.pruned.events`, `.deliveries`, `.attempts` | sum | |
 
 The generated Phoenix, Ecto and VM metrics stay. Exporting metrics to Prometheus or another backend and alerting are not part of v1.
 
@@ -800,6 +802,39 @@ export COURIER_ADMIN_TOKEN="$(openssl rand -base64 32)"
 ```
 
 The courier metrics are on the dashboard's "Metrics" page, grouped under `courier`.
+
+## Retention
+
+Old, finished events are deleted once a day with their deliveries and attempts, so the database stays bounded (FR-37 to FR-39). See the retention ADR in [decisions.md](decisions.md).
+
+**Period.** `COURIER_RETENTION_DAYS`, read in `config/runtime.exs` by `Courier.Retention.parse_days/1` into `config :courier, :retention_days`: whole days, default 30, minimum 2 (longer than the 24 h retry window). Any other value stops the boot with `COURIER_RETENTION_DAYS must be a whole number of days, at least 2`.
+
+**What is pruned.** An event, with all its deliveries and their attempts, when every delivery is terminal (`succeeded`, `failed` or `skipped`) and its last activity, the later of the event's `inserted_at` and its deliveries' latest `completed_at`, is older than the period. A `pending` delivery, or a resend that completed recently, keeps the whole event.
+
+**How.** `Courier.Retention.prune/2` works in batches of 1,000 events. Each batch is one transaction that:
+
+1. selects the due event ids (`GROUP BY` over events and their deliveries);
+2. runs `SET LOCAL courier.retention = 'on'`, the only exception the `attempts_append_only` trigger allows, and deletes the batch's attempts;
+3. deletes the deliveries in rounds, each removing those no resend points at (`resend_of_id` is `ON DELETE RESTRICT`), then the events;
+4. sets `courier.retention` back to `off` before committing.
+
+Batches repeat until one is smaller than 1,000, so transactions stay short. Any other delete of an attempt is still rejected by the trigger.
+
+**Daily job.** `Courier.Retention.Worker` runs in the static `maintenance` queue (`max_attempts: 3`) every day at 03:30 UTC. Oban accepts each plugin module once and `Oban.Plugins.Cron` holds the window sweeper's crontab, so the job has its own cron plugin, `Courier.Retention.Cron`, a thin module that delegates to `Oban.Cron`:
+
+```elixir
+{Courier.Retention.Cron, crontab: [{"30 3 * * *", Courier.Retention.Worker}]}
+```
+
+Every run reports, also when nothing was deleted: the `[:courier, :retention, :pruned]` event with the rows deleted per table (the `courier.retention.pruned.*` sums in LiveDashboard) and one `info` log line:
+
+```text
+[info] retention pruned events=3 deliveries=5 attempts=9 days=30
+```
+
+**Idempotency keys.** Once an event is pruned its `Idempotency-Key` is free again: the same key creates a new event (`202`). Producers that may retry for longer than the period must not rely on deduplication beyond it.
+
+Not in v1: archiving before deleting, per-merchant periods, pruning API keys, and a dashboard notice for pruned data (lists drop the rows on their next fetch). Old Oban jobs are pruned separately by `Oban.Plugins.Pruner` (7 days).
 
 ## Demo tools
 

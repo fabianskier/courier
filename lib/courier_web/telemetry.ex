@@ -134,6 +134,15 @@ defmodule CourierWeb.Telemetry do
         tags: [:queue],
         description: "Available jobs in an endpoint queue"
       ),
+      sum("courier.retention.pruned.events",
+        description: "Events deleted by the daily retention job"
+      ),
+      sum("courier.retention.pruned.deliveries",
+        description: "Deliveries deleted by the daily retention job"
+      ),
+      sum("courier.retention.pruned.attempts",
+        description: "Attempts deleted by the daily retention job"
+      ),
 
       # VM Metrics
       summary("vm.memory.total", unit: {:byte, :kilobyte}),

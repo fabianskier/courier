@@ -20,6 +20,9 @@ config :courier, Oban,
   plugins: [
     # Fail pending deliveries whose retry window ended (e.g. disabled endpoints).
     {Oban.Plugins.Cron, crontab: [{"*/5 * * * *", Courier.Delivery.WindowSweeper}]},
+    # Prune old, finished events once a day at 03:30 UTC (Oban accepts each
+    # plugin once, so retention has its own Cron plugin; see Courier.Retention.Cron).
+    {Courier.Retention.Cron, crontab: [{"30 3 * * *", Courier.Retention.Worker}]},
     # Keep finished jobs for 7 days so their history can be inspected.
     {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 7},
     # Rescue jobs left "executing" after a crash or restart.

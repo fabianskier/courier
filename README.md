@@ -135,6 +135,18 @@ Then ask in plain language. One example per tool:
 
 Read tools never change anything; `resend_delivery` needs a `write` key and creates a new delivery without touching the old one. Payloads and response bodies are handed to the agent as untrusted data, and every call is logged with the key's name. Details in [MCP server](docs/architecture.md#mcp-server).
 
+## Data retention
+
+A daily job (03:30 UTC) deletes events whose deliveries have all finished and whose last activity is older than the retention period, together with their deliveries and attempts. Events with a `pending` delivery are kept. Set the period in whole days with `COURIER_RETENTION_DAYS` (default `30`, minimum `2`); any other value stops courier at boot:
+
+```sh
+COURIER_RETENTION_DAYS=7 mix phx.server
+```
+
+With Docker, add it to the `courier` service's `environment` in `compose.yaml`.
+
+Once an event is pruned, its `Idempotency-Key` can be reused: sending the same key again creates a new event (`202`) instead of returning the old one. Each run logs one line such as `retention pruned events=3 deliveries=5 attempts=9 days=30`. Details in [Retention](docs/architecture.md#retention).
+
 ## Documentation
 
 | Document | Contents |

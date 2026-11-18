@@ -17,6 +17,7 @@ defmodule Courier.Telemetry do
   | `[:courier, :delivery, :failed]` | `attempts`, `total_ms` | `delivery_id`, `endpoint_id`, `reason` |
   | `[:courier, :delivery, :retry_scheduled]` | `delay_seconds` | `delivery_id`, `endpoint_id`, `attempt` |
   | `[:courier, :queue, :lag]` | `seconds`, `available` | `queue` |
+  | `[:courier, :retention, :pruned]` | `events`, `deliveries`, `attempts` | `days` |
 
   `total_ms` is the time from the delivery's `inserted_at` to its
   `completed_at`. `since_created_ms` is the time from `inserted_at` to the
@@ -33,6 +34,7 @@ defmodule Courier.Telemetry do
   @delivery_failed [:courier, :delivery, :failed]
   @delivery_retry_scheduled [:courier, :delivery, :retry_scheduled]
   @queue_lag [:courier, :queue, :lag]
+  @retention_pruned [:courier, :retention, :pruned]
 
   @type failure_reason :: :non_retryable | :window_ended
   @type attempt_outcome :: :success | :retry | :give_up
@@ -155,6 +157,35 @@ defmodule Courier.Telemetry do
   def emit_queue_lag(queue, seconds, available)
       when is_binary(queue) and is_number(seconds) and is_integer(available) do
     :telemetry.execute(@queue_lag, %{seconds: seconds, available: available}, %{queue: queue})
+  end
+
+  @doc """
+  The retention event, emitted by `emit_retention_pruned/2` once per daily
+  run. It is listed apart from `events/0` because it reports a whole run.
+  """
+  @spec retention_pruned_event() :: [atom()]
+  def retention_pruned_event, do: @retention_pruned
+
+  @doc """
+  Emits `[:courier, :retention, :pruned]` with the rows a retention run
+  deleted per table, for a period of `days`.
+  """
+  @spec emit_retention_pruned(
+          %{
+            :events => non_neg_integer(),
+            :deliveries => non_neg_integer(),
+            :attempts => non_neg_integer(),
+            optional(atom()) => term()
+          },
+          pos_integer()
+        ) :: :ok
+  def emit_retention_pruned(%{events: events, deliveries: deliveries, attempts: attempts}, days)
+      when is_integer(days) do
+    :telemetry.execute(
+      @retention_pruned,
+      %{events: events, deliveries: deliveries, attempts: attempts},
+      %{days: days}
+    )
   end
 
   defp completed(%Delivery{} = delivery) do
