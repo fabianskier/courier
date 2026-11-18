@@ -97,7 +97,10 @@ defmodule Courier.Retention.WorkerTest do
 
       assert config[:queues][:maintenance] == 1
 
-      assert {Courier.Retention.Cron, crontab: [{"30 3 * * *", Worker}]} in config[:plugins]
+      assert {Oban.Plugins.Cron, crontab: crontab} =
+               List.keyfind(config[:plugins], Oban.Plugins.Cron, 0)
+
+      assert {"30 3 * * *", Worker} in crontab
       assert Worker.new(%{}).changes.queue == "maintenance"
 
       # Once a day: a fixed minute and hour, every day of every month.
@@ -105,25 +108,8 @@ defmodule Courier.Retention.WorkerTest do
       assert MapSet.new(expression.minutes) == MapSet.new([30])
       assert MapSet.new(expression.hours) == MapSet.new([3])
 
-      # Oban accepts the plugin next to the sweeper's Cron plugin.
+      # Oban accepts the crontab with both jobs.
       assert :ok = config |> Keyword.delete(:testing) |> Oban.Config.validate()
-    end
-
-    test "the retention cron plugin starts under Oban" do
-      name = Courier.Retention.WorkerTest.Oban
-
-      start_supervised!(
-        {Oban,
-         name: name,
-         repo: Repo,
-         queues: [],
-         stager: false,
-         notifier: Oban.Notifiers.PG,
-         peer: {Oban.Peers.Isolated, leader?: false},
-         plugins: [{Courier.Retention.Cron, crontab: [{"30 3 * * *", Worker}]}]}
-      )
-
-      assert is_pid(Oban.Registry.whereis(name, {:plugin, Courier.Retention.Cron}))
     end
   end
 end

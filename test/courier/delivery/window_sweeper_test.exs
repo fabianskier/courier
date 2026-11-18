@@ -133,6 +133,9 @@ defmodule Courier.Delivery.WindowSweeperTest do
 
     assert config[:queues][:maintenance] == 1
 
-    assert {Oban.Plugins.Cron, crontab: [{"*/5 * * * *", WindowSweeper}]} in config[:plugins]
+    assert {Oban.Plugins.Cron, crontab: crontab} =
+             List.keyfind(config[:plugins], Oban.Plugins.Cron, 0)
+
+    assert {"*/5 * * * *", WindowSweeper} in crontab
   end
 end

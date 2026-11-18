@@ -820,10 +820,14 @@ Old, finished events are deleted once a day with their deliveries and attempts, 
 
 Batches repeat until one is smaller than 1,000, so transactions stay short. Any other delete of an attempt is still rejected by the trigger.
 
-**Daily job.** `Courier.Retention.Worker` runs in the static `maintenance` queue (`max_attempts: 3`) every day at 03:30 UTC. Oban accepts each plugin module once and `Oban.Plugins.Cron` holds the window sweeper's crontab, so the job has its own cron plugin, `Courier.Retention.Cron`, a thin module that delegates to `Oban.Cron`:
+**Daily job.** `Courier.Retention.Worker` runs in the static `maintenance` queue (`max_attempts: 3`) every day at 03:30 UTC, from the same `Oban.Plugins.Cron` crontab as the window sweeper:
 
 ```elixir
-{Courier.Retention.Cron, crontab: [{"30 3 * * *", Courier.Retention.Worker}]}
+{Oban.Plugins.Cron,
+ crontab: [
+   {"*/5 * * * *", Courier.Delivery.WindowSweeper},
+   {"30 3 * * *", Courier.Retention.Worker}
+ ]}
 ```
 
 Every run reports, also when nothing was deleted: the `[:courier, :retention, :pruned]` event with the rows deleted per table (the `courier.retention.pruned.*` sums in LiveDashboard) and one `info` log line:

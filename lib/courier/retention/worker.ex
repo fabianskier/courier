@@ -2,7 +2,7 @@ defmodule Courier.Retention.Worker do
   @moduledoc """
   Runs `Courier.Retention.prune/2` once a day in the `maintenance` queue.
 
-  `Courier.Retention.Cron` schedules it at 03:30 UTC. The period comes from
+  `Oban.Plugins.Cron` schedules it at 03:30 UTC. The period comes from
   `config :courier, :retention_days` (`COURIER_RETENTION_DAYS`, default 30).
   Every run reports the rows deleted per table, also when nothing was
   deleted: a `[:courier, :retention, :pruned]` telemetry event and one `info`
