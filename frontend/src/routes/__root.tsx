@@ -1,6 +1,7 @@
-import { createRootRouteWithContext, Link, Outlet } from '@tanstack/react-router'
+import { createRootRouteWithContext, Link, Outlet, useMatches } from '@tanstack/react-router'
 import { Toaster } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import { readKey } from '@/lib/session'
 import type { RouterContext } from '@/router'
 
 export const Route = createRootRouteWithContext<RouterContext>()({
@@ -8,20 +9,38 @@ export const Route = createRootRouteWithContext<RouterContext>()({
   notFoundComponent: NotFound,
 })
 
+// Signed-in pages (`_app`, and the overview with a key) render `AppShell`,
+// which brings its own header and `main`: this header is then left out.
+const showsShell = (matches: { routeId: string }[]) =>
+  matches.some(
+    (match) => match.routeId === '/_app' || (match.routeId === '/' && Boolean(readKey())),
+  )
+
 function RootLayout() {
+  const shell = useMatches({ select: showsShell })
+
   return (
     <TooltipProvider>
       <div className="min-h-svh bg-background text-foreground">
-        <header className="border-b">
-          <nav aria-label="Main" className="mx-auto flex max-w-6xl items-center gap-6 px-6 py-3">
-            <Link to="/" className="font-heading text-lg font-semibold">
-              Courier
-            </Link>
-          </nav>
-        </header>
-        <main className="mx-auto max-w-6xl px-6 py-8">
+        {shell ? (
           <Outlet />
-        </main>
+        ) : (
+          <>
+            <header className="border-b">
+              <nav
+                aria-label="Main"
+                className="mx-auto flex max-w-6xl items-center gap-6 px-6 py-3"
+              >
+                <Link to="/" className="font-heading text-lg font-semibold">
+                  Courier
+                </Link>
+              </nav>
+            </header>
+            <main className="mx-auto max-w-6xl px-6 py-8">
+              <Outlet />
+            </main>
+          </>
+        )}
       </div>
       <Toaster />
     </TooltipProvider>

@@ -1,72 +1,33 @@
-import { useQueryClient } from '@tanstack/react-query'
-import { createFileRoute, Link, Outlet, redirect, useRouter } from '@tanstack/react-router'
-import { LiveStatus } from '@/components/live-status'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { meQueryOptions, signOut, useMe } from '@/features/auth/session'
-import { ApiError } from '@/lib/api/client'
-import { useLiveUpdates } from '@/lib/live/use-live-updates'
+import { createFileRoute, Outlet, redirect, useLocation } from '@tanstack/react-router'
+import { AppShell } from '@/components/app-shell'
+import { ensureMe } from '@/features/auth/session'
 import { readKey } from '@/lib/session'
 
 // Every page with courier data: needs a stored key that `/me` accepts.
 export const Route = createFileRoute('/_app')({
   beforeLoad: async ({ context, location }) => {
-    const search = { redirect: location.href }
-    if (!readKey()) throw redirect({ to: '/sign-in', search })
-    await context.queryClient.ensureQueryData(meQueryOptions()).catch((error: unknown) => {
-      if (!(error instanceof ApiError) || error.status !== 401) throw error
-      throw redirect({ to: '/sign-in', search: { ...search, reason: 'expired' } })
-    })
+    if (!readKey()) throw redirect({ to: '/sign-in', search: { redirect: location.href } })
+    await ensureMe(context.queryClient, location.href)
   },
   component: AppLayout,
 })
 
-const links = [
-  { to: '/', label: 'Overview' },
-  { to: '/events', label: 'Events' },
-  { to: '/deliveries', label: 'Deliveries' },
-  { to: '/failed', label: 'Failed' },
-  { to: '/merchants', label: 'Merchants' },
-  { to: '/endpoints', label: 'Endpoints' },
-] as const
+// The breadcrumb's page, from the path's first segment: detail pages name
+// their list.
+const titles: Record<string, string> = {
+  events: 'Events',
+  deliveries: 'Deliveries',
+  failed: 'Failed',
+  endpoints: 'Endpoints',
+  merchants: 'Merchants',
+}
 
 function AppLayout() {
-  const me = useMe()
-  const router = useRouter()
-  const queryClient = useQueryClient()
-  const liveStatus = useLiveUpdates()
+  const title = useLocation({ select: (location) => titles[location.pathname.split('/')[1] ?? ''] })
 
   return (
-    <div className="flex flex-col gap-8">
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b pb-4">
-        <nav aria-label="Dashboard" className="flex gap-4 text-sm">
-          {links.map((link) => (
-            <Link
-              key={link.to}
-              to={link.to}
-              activeOptions={{ exact: link.to === '/' }}
-              className="text-muted-foreground hover:text-foreground data-[status=active]:font-medium data-[status=active]:text-foreground"
-            >
-              {link.label}
-            </Link>
-          ))}
-        </nav>
-        <div className="flex items-center gap-3 text-sm">
-          <LiveStatus status={liveStatus} />
-          <span aria-label="Key in use" className="flex items-center gap-2">
-            <span className="font-medium">{me.name}</span>
-            {me.scopes.map((scope) => (
-              <Badge key={scope} variant="secondary">
-                {scope}
-              </Badge>
-            ))}
-          </span>
-          <Button variant="outline" size="sm" onClick={() => void signOut(router, queryClient)}>
-            Sign out
-          </Button>
-        </div>
-      </div>
+    <AppShell title={title ?? 'Overview'}>
       <Outlet />
-    </div>
+    </AppShell>
   )
 }

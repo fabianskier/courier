@@ -1,5 +1,6 @@
 import { type QueryClient, queryOptions, useSuspenseQuery } from '@tanstack/react-query'
-import { apiFetch, onUnauthorized } from '@/lib/api/client'
+import { redirect } from '@tanstack/react-router'
+import { ApiError, apiFetch, onUnauthorized } from '@/lib/api/client'
 import { queryKeys } from '@/lib/api/query-keys'
 import { stopLive } from '@/lib/live/connection'
 import type { Me } from '@/lib/api/types'
@@ -15,7 +16,17 @@ export function meQueryOptions() {
   })
 }
 
-// Inside `_app` only: its guard has already loaded `/me`.
+// Loads `/me` for the stored key before a signed-in page renders; a key it
+// rejects sends the operator to sign in, coming back to `href`.
+export async function ensureMe(queryClient: QueryClient, href: string) {
+  await queryClient.ensureQueryData(meQueryOptions()).catch((error: unknown) => {
+    if (!(error instanceof ApiError) || error.status !== 401) throw error
+    throw redirect({ to: '/sign-in', search: { redirect: href, reason: 'expired' } })
+  })
+}
+
+// Inside the shell only (`_app` and the signed-in overview): their guards have
+// already loaded `/me`.
 export function useMe() {
   return useSuspenseQuery(meQueryOptions()).data
 }
