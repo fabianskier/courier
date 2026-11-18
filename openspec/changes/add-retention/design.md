@@ -37,10 +37,10 @@ LIMIT 1000
 **Deleting a batch.** In one `Repo.transaction`:
 1. `SET LOCAL courier.retention = 'on'`;
 2. delete the batch's attempts (`WHERE delivery_id IN (deliveries of the batch)`);
-3. clear `resend_of_id` on the batch's deliveries (an `UPDATE` on deliveries, which have no append-only trigger), so `RESTRICT` on the self-reference cannot fire;
-4. delete the batch's deliveries, then its events.
+3. delete the batch's deliveries in rounds, each round removing those no other delivery points at through `resend_of_id`, until none are left (rounds are bounded by the longest resend chain), then its events;
+4. set `courier.retention` back to `off` before the transaction ends.
 The counts come from each `delete_all`. Batches repeat until a batch is smaller than 1,000. Each batch re-selects, so events that changed meanwhile are re-checked.
-*Alternatives:* deleting resends before originals in rounds (chains of any depth need a loop), or changing the foreign key to `ON DELETE SET NULL` or a deferrable constraint (a migration for a job-only concern).
+*Alternatives:* clearing `resend_of_id` first (rejected while building: a resend would become a second original and break the unique index on originals), or changing the foreign key to `ON DELETE SET NULL` or a deferrable constraint (a migration for a job-only concern).
 
 **Job.** `Courier.Retention.Worker` (`use Oban.Worker, queue: :maintenance, max_attempts: 3`) calls `Courier.Retention.prune(days)` and returns `:ok`. Cron entry `{"30 3 * * *", Courier.Retention.Worker}` (daily, 03:30 UTC). After the run: `:telemetry.execute([:courier, :retention, :pruned], %{events: e, deliveries: d, attempts: a}, %{days: days})` and `Logger.info("retention pruned events=… deliveries=… attempts=… days=…")`. `CourierWeb.Telemetry` adds `sum("courier.retention.pruned.events")` (and deliveries, attempts).
 
@@ -51,7 +51,6 @@ The counts come from each `delete_all`. Batches repeat until a batch is smaller 
 ## Risks / Trade-offs
 
 - [The selection query scans events with a `GROUP BY`] → fine at demo scale and run once a day; an index on `deliveries (event_id, status)` can come with the load test (step 14) if needed.
-- [Clearing `resend_of_id` loses the link] → only for rows deleted in the same transaction, so nothing visible keeps a dangling or cleared link.
 - [A long first run after enabling retention on a big database] → batches keep each transaction short; the job may take several batches.
 
 ## Migration Plan
