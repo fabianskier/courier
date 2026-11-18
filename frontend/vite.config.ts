@@ -34,6 +34,10 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     include: ['tests/**/*.test.{ts,tsx}'],
-    setupFiles: ['./tests/setup.ts', './tests/support/live-setup.ts'],
+    setupFiles: [
+      './tests/setup.ts',
+      './tests/support/live-setup.ts',
+      './tests/support/resize-observer-setup.ts',
+    ],
   },
 })
