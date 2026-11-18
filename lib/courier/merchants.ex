@@ -1,10 +1,12 @@
 defmodule Courier.Merchants do
   @moduledoc """
   Merchants: creation, lookup, paginated listing, renaming and enabling or
-  disabling. Merchants are never deleted.
+  disabling. Merchants are never deleted. A successful create or update
+  broadcasts a `merchant_changed` notice after commit (see `Courier.Notices`).
   """
 
   alias Courier.Merchants.Merchant
+  alias Courier.Notices
   alias Courier.Pagination
   alias Courier.Repo
 
@@ -14,6 +16,7 @@ defmodule Courier.Merchants do
     %Merchant{}
     |> Merchant.create_changeset(attrs)
     |> Repo.insert()
+    |> announce()
   end
 
   @doc "Returns the merchant with `id`, or `{:error, :not_found}` for unknown or malformed ids."
@@ -41,5 +44,13 @@ defmodule Courier.Merchants do
     merchant
     |> Merchant.update_changeset(attrs)
     |> Repo.update()
+    |> announce()
   end
+
+  defp announce({:ok, %Merchant{} = merchant} = result) do
+    Notices.merchant_changed(merchant)
+    result
+  end
+
+  defp announce(result), do: result
 end

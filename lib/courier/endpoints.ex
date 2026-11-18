@@ -3,6 +3,9 @@ defmodule Courier.Endpoints do
   Merchant endpoints: creation, lookup, paginated listing and updates. Endpoints
   are never deleted. Secrets (`whsec_` + base64 of 32 random bytes) are only
   returned by `create_endpoint/1` and `rotate_secret/2`.
+
+  A successful create, update or rotation broadcasts an `endpoint_changed`
+  notice after commit (see `Courier.Notices`).
   """
 
   import Ecto.Query, warn: false
@@ -10,6 +13,7 @@ defmodule Courier.Endpoints do
   alias Courier.Delivery.QueueManager
   alias Courier.Endpoints.Endpoint
   alias Courier.Merchants.Merchant
+  alias Courier.Notices
   alias Courier.Pagination
   alias Courier.Repo
 
@@ -33,6 +37,7 @@ defmodule Courier.Endpoints do
     # Ecto logs query parameters before Cloak encrypts them; never log the secret.
     with {:ok, endpoint} <- Repo.insert(changeset, log: false) do
       :ok = QueueManager.sync(endpoint)
+      Notices.endpoint_changed(endpoint)
       {:ok, endpoint, secret}
     end
   end
@@ -77,6 +82,7 @@ defmodule Courier.Endpoints do
   def update_endpoint(%Endpoint{} = endpoint, attrs) when is_map(attrs) do
     with {:ok, endpoint} <- endpoint |> Endpoint.update_changeset(attrs) |> Repo.update() do
       :ok = QueueManager.sync(endpoint)
+      Notices.endpoint_changed(endpoint)
       {:ok, endpoint}
     end
   end
@@ -111,8 +117,13 @@ defmodule Courier.Endpoints do
       end
     end)
     |> case do
-      {:ok, {endpoint, secret}} -> {:ok, endpoint, secret}
-      {:error, reason} -> {:error, reason}
+      {:ok, {endpoint, secret}} ->
+        # After commit, so a rolled-back rotation announces nothing.
+        Notices.endpoint_changed(endpoint)
+        {:ok, endpoint, secret}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 

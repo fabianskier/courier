@@ -38,8 +38,9 @@ defmodule Courier.Ingestion do
 
   Returns `{:ok, :created, event}` for a new event and `{:ok, :repeat, event}`
   for a repeat, with deliveries preloaded in both cases. A new event emits
-  the telemetry event `[:courier, :event, :ingested]` after commit; a repeat
-  emits nothing.
+  the telemetry event `[:courier, :event, :ingested]` and the notices
+  `event_ingested` and one `delivery_changed` per delivery (see
+  `Courier.Notices`) after commit; a repeat emits nothing.
   """
   @spec ingest(map(), String.t() | nil) ::
           {:ok, :created | :repeat, Event.t()} | {:error, error()}
@@ -50,6 +51,8 @@ defmodule Courier.Ingestion do
           {:ok, %{event: event, deliveries: deliveries}} ->
             # After the transaction, so a rolled-back event emits nothing.
             Courier.Telemetry.emit_event_ingested(event, deliveries)
+            Courier.Notices.event_ingested(event)
+            Enum.each(deliveries, &Courier.Notices.delivery_changed/1)
             {:ok, :created, %{event | deliveries: deliveries}}
 
           {:error, :event, :duplicate, _changes} ->

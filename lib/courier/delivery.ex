@@ -7,6 +7,12 @@ defmodule Courier.Delivery do
   `failed`. Every write locks the delivery row (`FOR UPDATE`) inside a short
   transaction, never held during the HTTP request, and does nothing when the
   delivery is no longer `pending`, so a late or duplicate result is ignored.
+
+  After commit, every stored change is announced (see `Courier.Notices`): a
+  `delivery_changed` notice for an attempt outcome, a window-ended failure
+  or a resend, and an `endpoint_changed` notice when the endpoint turns
+  degraded or recovers. A stale, rejected or rolled-back change announces
+  nothing.
   """
 
   import Ecto.Query, warn: false
@@ -15,6 +21,7 @@ defmodule Courier.Delivery do
   alias Courier.Delivery.Delivery
   alias Courier.Delivery.{Queues, Worker}
   alias Courier.Endpoints.Endpoint
+  alias Courier.Notices
   alias Courier.Pagination
   alias Courier.Repo
   alias Courier.Telemetry
@@ -235,6 +242,7 @@ defmodule Courier.Delivery do
         Telemetry.emit_delivery_retry_scheduled(delivery, delay_seconds(attempt, at))
     end
 
+    Notices.delivery_changed(delivery)
     result
   end
 
@@ -287,6 +295,7 @@ defmodule Courier.Delivery do
   # Runs after the transaction; a stale result changed nothing and emits nothing.
   defp emit_window_ended({:ok, %Delivery{} = delivery} = result) do
     Telemetry.emit_delivery_failed(delivery, :window_ended)
+    Notices.delivery_changed(delivery)
     result
   end
 
@@ -329,7 +338,16 @@ defmodule Courier.Delivery do
         {:ok, resend}
       end
     end)
+    |> announce_resend()
   end
+
+  # Runs after the transaction, so a rolled-back resend announces nothing.
+  defp announce_resend({:ok, %Delivery{} = resend} = result) do
+    Notices.delivery_changed(resend)
+    result
+  end
+
+  defp announce_resend(result), do: result
 
   defp lock_terminal(delivery_id) do
     with {:ok, uuid} <- Ecto.UUID.cast(delivery_id),
@@ -457,6 +475,8 @@ defmodule Courier.Delivery do
       nil ->
         :ok
     end
+
+    if health, do: Notices.endpoint_changed(endpoint)
 
     {:ok, Map.delete(recorded, :endpoint)}
   end
