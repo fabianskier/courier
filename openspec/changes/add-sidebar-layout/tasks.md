@@ -9,7 +9,7 @@ Each task must stay within the gate's diff budget (about 800 changed lines and 2
 
 ## 2. Docs
 
-- [ ] 2.1 Update `docs/architecture.md` ("Dashboard SPA": the shell, sidebar parts and merchant switcher) and the README's dashboard step (the sidebar and the switcher), and add the change to `docs/roadmap.md`; verify `sh .smelt/checks.sh` and `openspec validate add-sidebar-layout --strict` pass and every scenario in `specs/` has a test with the same name
+- [x] 2.1 Update `docs/architecture.md` ("Dashboard SPA": the shell, sidebar parts and merchant switcher) and the README's dashboard step (the sidebar and the switcher), and add the change to `docs/roadmap.md`; verify `sh .smelt/checks.sh` and `openspec validate add-sidebar-layout --strict` pass and every scenario in `specs/` has a test with the same name
 
 ## Workflow follow-up
 

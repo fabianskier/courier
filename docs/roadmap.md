@@ -70,5 +70,7 @@ Steps 1 to 8 give a complete backend that can be demoed with `curl`, the demo re
 
 - Step 14, polish (`add-load-test` and manual): `bin/load` / `mix courier.load` (ingestion latency p50/p95/p99, time to first attempt overall and per endpoint, attempts per second, reading the database without starting the application), the README's "How it works" diagrams and "Measured performance" section, and the measured numbers in the NFR table of `docs/analysis.md` (all four targets met; see "How the numbers were measured"). The daily retention job now shares the `Oban.Plugins.Cron` crontab.
 
+- `add-sidebar-layout`: a collapsible sidebar (in the style of shadcn's `sidebar-07`) for every signed-in page, the overview included: `AppShell` with a header (toggle, breadcrumb, live status), `AppSidebar` with `NavMain` (Overview and the "Activity" and "Configuration" groups) and `NavKey` (key in use, "Sign out"), and a `MerchantSwitcher` whose choice is kept for the browser session and applied as the `merchant_id` filter of the Events, Deliveries, Failed and Endpoints lists (a view filter only, no access control). Frontend only. Documented in `docs/architecture.md` ("Dashboard SPA") and in the README ("Local demo", step 9).
+
 **Next:**
 1. A demo GIF for the README (recorded by hand: sign in, open "Failed", resend, watch the list update live).
