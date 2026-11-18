@@ -9,7 +9,7 @@ A reliable **webhook delivery engine** in Elixir, with a React + shadcn/ui dashb
 - Append-only audit trail of every attempt; manual resend that never rewrites history.
 - MCP server: read-only tools by default, a separate tool for resends.
 
-> **Status:** the backend works end to end: ingestion, signed delivery with retries and dead letters, manual resend, telemetry, demo tools to see it all locally (see [Local demo](#local-demo)), and an MCP server for AI agents (see [Use it from Claude Code](#use-it-from-claude-code)). The dashboard comes next. See [docs/roadmap.md](docs/roadmap.md).
+> **Status:** everything described here works end to end: idempotent ingestion, signed delivery with retries and dead letters, manual resend, endpoint health and telemetry; the React dashboard (events, deliveries, failed view, endpoints and merchants management, live updates, a sidebar with a merchant switcher, and light and dark mode); an MCP server for AI agents (see [Use it from Claude Code](#use-it-from-claude-code)); data retention; and demo tools and a load test with measured performance, to see it all locally (see [Local demo](#local-demo)). See [docs/roadmap.md](docs/roadmap.md) for the build path.
 
 ## How it works
 
