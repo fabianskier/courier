@@ -11,6 +11,63 @@ A reliable **webhook delivery engine** in Elixir, with a React + shadcn/ui dashb
 
 > **Status:** the backend works end to end: ingestion, signed delivery with retries and dead letters, manual resend, telemetry, demo tools to see it all locally (see [Local demo](#local-demo)), and an MCP server for AI agents (see [Use it from Claude Code](#use-it-from-claude-code)). The dashboard comes next. See [docs/roadmap.md](docs/roadmap.md).
 
+## How it works
+
+Containers: one Phoenix node with the JSON API, MCP, per-endpoint Oban queues and the delivery worker, on one PostgreSQL database.
+
+```mermaid
+flowchart TB
+    subgraph browser["Browser"]
+        spa["React SPA<br/>TypeScript, shadcn/ui, TanStack Query"]
+    end
+
+    subgraph node["courier (Phoenix, one BEAM node)"]
+        api["JSON API<br/>/api/v1"]
+        mcp["MCP endpoint<br/>/mcp"]
+        chan["DashboardChannel<br/>/socket"]
+        static["Static SPA files<br/>/"]
+        ldash["LiveDashboard<br/>/admin/dashboard"]
+        ctx["Contexts<br/>Ingestion, Endpoints, Delivery, Audit"]
+        qm["QueueManager<br/>one queue per endpoint"]
+        oban["Oban<br/>queues endpoint_ID, limit each"]
+        worker["DeliveryWorker<br/>Req client, no client retries"]
+    end
+
+    db[("PostgreSQL<br/>data + Oban jobs")]
+    receiver["Merchant endpoint"]
+    demo["Demo receiver<br/>(compose service, can fail on purpose)"]
+
+    spa -- "HTTPS JSON (REST)" --> api
+    spa -- "WebSocket: change notices" --> chan
+    spa --- static
+    api --> ctx
+    mcp --> ctx
+    ctx -- "PubSub broadcasts" --> chan
+    ctx -- "Ecto, one transaction:<br/>event + deliveries + jobs" --> db
+    ctx -- "endpoint created / updated / disabled" --> qm
+    qm -- "start, scale, pause, stop queue" --> oban
+    oban -- "fetch jobs per queue" --> db
+    oban -- "up to max_concurrency per endpoint" --> worker
+    worker -- "record attempt" --> ctx
+    worker -- "signed POST" --> receiver
+    worker -. "local demo" .-> demo
+```
+
+Delivery lifecycle: a resend never changes these states; it creates a new delivery that starts at `pending`.
+
+```mermaid
+stateDiagram-v2
+    [*] --> skipped: endpoint filter excludes event type
+    [*] --> pending: event accepted
+    pending --> succeeded: 2xx
+    pending --> pending: retryable failure, window open (retry scheduled)
+    pending --> failed: non-retryable failure
+    pending --> failed: retry window ended
+    skipped --> [*]
+    succeeded --> [*]
+    failed --> [*]
+```
+
 ## Local demo
 
 Shows successes, retries, dead letters, skipped deliveries, a slow endpoint and a manual resend with real signed requests. It needs Elixir and Erlang (versions in `mise.toml`), PostgreSQL and three terminals. The demo tools are described in [docs/architecture.md](docs/architecture.md#demo-tools).
@@ -100,6 +157,17 @@ docker compose logs -f demo-receiver         # one line per webhook, with signat
 ```
 
 The API and the dashboard (step 9, signing in with the key `bin/seed` printed) are at <http://localhost:4000>. LiveDashboard (step 7) is at <http://localhost:4000/admin/dashboard>: any user name, and the password is `COURIER_ADMIN_TOKEN` in `compose.yaml` (`courier-demo-admin-token-not-a-secret`). For the resend (step 8), use `http://demo-receiver:4001/hooks/harbor-fail/ok` as the endpoint's URL, because the receiver is only reachable inside Compose. To start again from an empty database, run `docker compose down -v` first. See [Docker demo](docs/architecture.md#docker-demo) for how it is built.
+
+## Measured performance
+
+The non-functional targets (ingestion latency and throughput, time to first attempt, delivery throughput) are in the table in [docs/analysis.md](docs/analysis.md#non-functional-requirements). `mix courier.load` measures them: it sends distinct events at a rate (reusing the simulator's pacing), then reports the ingestion latency (p50, p95, p99) and, from the database, the time to first attempt overall and per endpoint (so a slow endpoint's isolation shows) and the attempts per second. It waits up to `--wait` seconds for the run's deliveries to get their first attempt and says how many did not.
+
+```sh
+export COURIER_INGEST_TOKEN=ck_...   # a key with the ingest scope
+mix courier.load --merchant <merchant id> --merchant <merchant id> --rate 50 --count 1500
+```
+
+With Docker, `docker compose exec courier bin/load --token ck_... --merchant <merchant id> --rate 50 --count 1500` takes the same options. Defaults: `--rate 50`, `--count 500`, `--wait 30`, `--url http://localhost:4000`. Numbers depend on the machine and on the demo receiver; see [Load test](docs/architecture.md#load-test).
 
 ## Dashboard development
 

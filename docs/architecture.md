@@ -940,6 +940,21 @@ bin/simulate --token ck_... --merchant <merchant id> --count 50 --rate 10
 
 The script runs `bin/courier eval 'System.halt(CourierDemo.CLI.simulate(System.argv()))'`: `eval` loads the configuration and starts no application, and `simulate/1` starts only `:req`. Both entry points share `CourierDemo.CLI`: `parse_simulate/2` parses and validates the options (the token defaults to `COURIER_INGEST_TOKEN`) and `summary/1` builds the summary lines. The Mix task prints through `Mix.shell()` and exits with `exit({:shutdown, 1})`; `simulate/1` prints the summary to standard output and returns `0`, or prints the errors and a usage line to standard error and returns `1`, which the script turns into the exit status.
 
+### Load test
+
+`mix courier.load` (and `bin/load` in a release) measures the targets of the non-functional table in `docs/analysis.md`. `CourierDemo.Load` sends distinct events with `CourierDemo.Simulator` (same plan and pacing, with the `:latencies` option recording each request's latency), then reads the run's deliveries (those of the given merchants created during the run, except `skipped` ones and resends) through `Courier.Repo`, which is started on its own, not the whole application.
+
+| Option | Default | Meaning |
+|---|---|---|
+| `--merchant ID` | required, repeatable | merchants to send events for |
+| `--token TOKEN` | `COURIER_INGEST_TOKEN` (required) | API key with the `ingest` scope |
+| `--url URL` | `http://localhost:4000` | courier's base URL |
+| `--rate N` | `50` | events per second |
+| `--count N` | `500` | number of events |
+| `--wait N` | `30` | seconds to wait for first attempts |
+
+The report has the ingestion part (requests, achieved rate, statuses, client latency p50/p95/p99) and the delivery part (time to first attempt p50/p95 overall and per endpoint, attempts per second, and how many deliveries had no attempt when the wait ended). Time to first attempt compares two timestamps written by courier, so it includes queueing, not only HTTP. Invalid options exit with status 1 before anything is sent; the token is never printed.
+
 ### Demo seeds
 
 `priv/repo/seeds.exs` calls `CourierDemo.Seeds.run/1` and prints `CourierDemo.Seeds.report/2`. It runs with `mix run priv/repo/seeds.exs`, and as part of `mix ecto.setup` and `mix ecto.reset`. It creates, through the public context functions only (`Courier.Access`, `Courier.Merchants`, `Courier.Endpoints`, so URLs pass the URL policy and each endpoint's queue starts):

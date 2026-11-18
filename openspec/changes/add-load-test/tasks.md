@@ -8,7 +8,7 @@ Each task must stay within the gate's diff budget (about 800 changed lines and 2
 
 ## 2. README
 
-- [ ] 2.1 Polish the README: add the containers diagram and the delivery lifecycle diagram (Mermaid, from `docs/architecture.md`) near the top, a "Measured performance" section that explains `bin/load` / `mix courier.load` and points at the NFR table in `docs/analysis.md`, and check every walkthrough command against the code; add a "Load test" paragraph to `docs/architecture.md` ("Demo tools"); verify `sh .smelt/checks.sh` and `openspec validate add-load-test --strict` pass and every scenario in `specs/` has a test with the same name
+- [x] 2.1 Polish the README: add the containers diagram and the delivery lifecycle diagram (Mermaid, from `docs/architecture.md`) near the top, a "Measured performance" section that explains `bin/load` / `mix courier.load` and points at the NFR table in `docs/analysis.md`, and check every walkthrough command against the code; add a "Load test" paragraph to `docs/architecture.md` ("Demo tools"); verify `sh .smelt/checks.sh` and `openspec validate add-load-test --strict` pass and every scenario in `specs/` has a test with the same name
 
 ## Workflow follow-up
 
