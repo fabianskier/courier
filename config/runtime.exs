@@ -31,6 +31,12 @@ case System.get_env("COURIER_ADMIN_TOKEN") do
   token -> config :courier, :admin_token, token
 end
 
+# Retention period in whole days for Courier.Retention (default 30, minimum 2,
+# longer than the 24 h retry window). An invalid value stops the boot.
+config :courier,
+       :retention_days,
+       Courier.Retention.parse_days(System.get_env("COURIER_RETENTION_DAYS"))
+
 if config_env() == :dev do
   # Database connection from the environment (set in mise.toml [env]).
   # Falls back to the values in config/dev.exs when unset.
