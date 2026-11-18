@@ -16,9 +16,12 @@ defmodule CourierWeb.Endpoint do
     longpoll: [connect_info: [session: @session_options]]
 
   # Dashboard live updates: the API key travels as the WebSocket auth token
-  # (Sec-WebSocket-Protocol header), never in the URL.
+  # (Sec-WebSocket-Protocol header), never in the URL. `auth_token` must be a
+  # top-level socket option: Phoenix copies it into each transport and would
+  # overwrite one set inside `websocket:`.
   socket "/socket", CourierWeb.DashboardSocket,
-    websocket: [auth_token: true],
+    auth_token: true,
+    websocket: true,
     longpoll: false
 
   # Serve at "/" the static files from "priv/static" directory.
