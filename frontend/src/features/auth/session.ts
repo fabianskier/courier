@@ -1,6 +1,7 @@
 import { type QueryClient, queryOptions, useSuspenseQuery } from '@tanstack/react-query'
 import { apiFetch, onUnauthorized } from '@/lib/api/client'
 import { queryKeys } from '@/lib/api/query-keys'
+import { stopLive } from '@/lib/live/connection'
 import type { Me } from '@/lib/api/types'
 import { clearKey } from '@/lib/session'
 import type { AppRouter } from '@/router'
@@ -25,8 +26,10 @@ export const useCanWrite = () => useMe().scopes.includes('write')
 // Only same-app paths are followed after sign-in, never another origin.
 export const safeRedirect = (value = '') => (/^\/(?![/\\]|sign-in)/.test(value) ? value : '/')
 
-// The cache is cleared once the data pages are gone, so none of them refetches.
+// The dashboard socket closes first. The cache is cleared once the data pages
+// are gone, so none of them refetches.
 export async function signOut(router: AppRouter, queryClient: QueryClient) {
+  stopLive()
   clearKey()
   await router.navigate({ to: '/sign-in' })
   queryClient.clear()
@@ -36,6 +39,7 @@ export async function signOut(router: AppRouter, queryClient: QueryClient) {
 // coming back to the page the operator was on.
 export function installUnauthorizedHandler(router: AppRouter, queryClient: QueryClient) {
   return onUnauthorized(async () => {
+    stopLive()
     clearKey()
     const { href, pathname } = router.latestLocation
     if (pathname !== '/sign-in') {

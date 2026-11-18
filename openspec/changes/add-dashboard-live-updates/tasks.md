@@ -9,7 +9,7 @@ Each task must stay within the gate's diff budget (about 800 changed lines and 2
 
 ## 2. Frontend
 
-- [ ] 2.1 Add `src/lib/live/` (transport over `phoenix`'s `Socket` with `authToken`, notice-to-query mapping, the coalescer), `useLiveUpdates` in the `_app` layout, disconnect on sign-out and on `401`, the reconnect refetch, and the `LiveStatus` indicator; verify with `frontend/tests/live-updates.test.tsx` covering every scenario of "Dashboard refreshes from notices" and "Reconnect and live status"
+- [x] 2.1 Add `src/lib/live/` (transport over `phoenix`'s `Socket` with `authToken`, notice-to-query mapping, the coalescer), `useLiveUpdates` in the `_app` layout, disconnect on sign-out and on `401`, the reconnect refetch, and the `LiveStatus` indicator; verify with `frontend/tests/live-updates.test.tsx` covering every scenario of "Dashboard refreshes from notices" and "Reconnect and live status"
 
 ## 3. Docs
 

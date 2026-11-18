@@ -1,9 +1,11 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, Link, Outlet, redirect, useRouter } from '@tanstack/react-router'
+import { LiveStatus } from '@/components/live-status'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { meQueryOptions, signOut, useMe } from '@/features/auth/session'
 import { ApiError } from '@/lib/api/client'
+import { useLiveUpdates } from '@/lib/live/use-live-updates'
 import { readKey } from '@/lib/session'
 
 // Every page with courier data: needs a stored key that `/me` accepts.
@@ -32,6 +34,7 @@ function AppLayout() {
   const me = useMe()
   const router = useRouter()
   const queryClient = useQueryClient()
+  const liveStatus = useLiveUpdates()
 
   return (
     <div className="flex flex-col gap-8">
@@ -49,6 +52,7 @@ function AppLayout() {
           ))}
         </nav>
         <div className="flex items-center gap-3 text-sm">
+          <LiveStatus status={liveStatus} />
           <span aria-label="Key in use" className="flex items-center gap-2">
             <span className="font-medium">{me.name}</span>
             {me.scopes.map((scope) => (
