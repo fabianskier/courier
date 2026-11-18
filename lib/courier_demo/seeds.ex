@@ -19,6 +19,7 @@ defmodule CourierDemo.Seeds do
   @scopes ~w(ingest read write)
   @default_receiver_url "http://localhost:4001"
   @timeout_ms 2_000
+  @courier_url "http://localhost:4000"
 
   # {merchant, [{endpoint name, receiver behaviour, endpoint settings}]}
   @data [
@@ -147,8 +148,11 @@ defmodule CourierDemo.Seeds do
   @doc """
   Renders the result of `run/1` as the text the seeds script prints: the
   token (shown only here), the merchants, the endpoints, a warning for the
-  endpoints whose secret the receiver did not take, and a simulator command
-  that can be run as printed. It never contains a signing secret.
+  endpoints whose secret the receiver did not take, a simulator command that
+  can be run as printed and a "Try it" block of ready-to-run examples (the
+  dashboard URL, a load test against the fast merchant, the receiver's log
+  with Docker, a `curl` for failed deliveries and the `claude mcp add`
+  command). It never contains a signing secret.
 
   `commands` is the kind of commands the text names: `:mix` (the default, for
   `priv/repo/seeds.exs`) or `:release` (for the release's `bin/seed`, which
@@ -181,11 +185,43 @@ defmodule CourierDemo.Seeds do
     #{registration_note(summary, commands)}
     Send events with:
       #{simulate_command(commands)} --token #{summary.token} #{merchant_options}
+
+    Try it:
+    #{lines(try_it_examples(summary, commands), & &1)}
     """
   end
 
   defp simulate_command(:mix), do: "mix courier.simulate"
   defp simulate_command(:release), do: "docker compose exec courier bin/simulate"
+
+  defp load_command(:mix), do: "mix courier.load"
+  defp load_command(:release), do: "docker compose exec courier bin/load"
+
+  # The first merchant of the data set (Sunrise Bakery) owns the fast `ok` endpoint.
+  defp try_it_examples(summary, commands) do
+    [%{id: fast_merchant_id} | _] = summary.merchants
+    token = summary.token
+
+    [
+      "# Dashboard: sign in with the API key above",
+      @courier_url,
+      "# Load test against the fast merchant",
+      "#{load_command(commands)} --token #{token} --merchant #{fast_merchant_id} --rate 50 --count 500"
+    ] ++
+      receiver_log_example(commands) ++
+      [
+        "# Failed deliveries",
+        ~s(curl -H "Authorization: Bearer #{token}" "#{@courier_url}/api/v1/deliveries?status=failed"),
+        "# Connect Claude Code over MCP",
+        ~s(claude mcp add --transport http courier #{@courier_url}/mcp --header "Authorization: Bearer #{token}")
+      ]
+  end
+
+  defp receiver_log_example(:mix), do: []
+
+  defp receiver_log_example(:release) do
+    ["# Watch the receiver", "docker compose logs -f demo-receiver"]
+  end
 
   defp reseed_hint(:mix), do: "To start again from an empty database, run: mix ecto.reset"
 
