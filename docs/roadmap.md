@@ -68,5 +68,7 @@ Steps 1 to 8 give a complete backend that can be demoed with `curl`, the demo re
 
 - Step 13, `add-retention`: `Courier.Retention` with `COURIER_RETENTION_DAYS` (default 30, minimum 2, boot error otherwise) and `prune/2`, which deletes events whose deliveries are all terminal and whose last activity is older than the period, with their deliveries (in rounds, so resend links are respected) and attempts, in batches of 1,000 events per transaction under `SET LOCAL courier.retention = 'on'`; `Courier.Retention.Worker` in the `maintenance` queue, daily at 03:30 UTC from the shared `Oban.Plugins.Cron` crontab; the `[:courier, :retention, :pruned]` telemetry event, one `info` log line per run and the `courier.retention.pruned.*` sums in LiveDashboard. A pruned event's idempotency key can be reused. Documented in `docs/architecture.md` ("Retention") and in the README ("Data retention").
 
+- Step 14, polish (`add-load-test` and manual): `bin/load` / `mix courier.load` (ingestion latency p50/p95/p99, time to first attempt overall and per endpoint, attempts per second, reading the database without starting the application), the README's "How it works" diagrams and "Measured performance" section, and the measured numbers in the NFR table of `docs/analysis.md` (all four targets met; see "How the numbers were measured"). The daily retention job now shares the `Oban.Plugins.Cron` crontab.
+
 **Next:**
-1. Step 14, **Polish**: README with diagrams, demo GIF, load test script and measured numbers in `docs/analysis.md`.
+1. A demo GIF for the README (recorded by hand: sign in, open "Failed", resend, watch the list update live).

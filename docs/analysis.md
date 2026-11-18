@@ -99,22 +99,33 @@ It is a public portfolio project. Goals besides the product itself: show payment
 
 Targets are for a single node on a developer laptop (local demo), measured by a load script included in the repo.
 
-| Area | Target |
-|---|---|
-| Ingestion latency | p95 < 50 ms at 50 events/s |
-| Ingestion throughput | ≥ 200 events/s sustained on one node (TBD after first measurement) |
-| Time to first attempt | p95 < 2 s after ingestion when the queue is not backlogged |
-| Delivery throughput | ≥ 100 attempts/s with a fast receiver (TBD) |
-| Request timeouts | connect 5 s, receive 10 s (configurable) |
-| Payload size | max 256 KB per event |
-| Stored response body | first 4 KB |
-| Backoff | base 10 s, factor 2, cap 1 h, with jitter → roughly 30–50 attempts in a 24 h window |
-| Retention | configurable in days, default 30 (FR-37) |
-| Delivery guarantee | at least once; no ordering guarantee |
-| Durability | no accepted event lost on crash or restart (FR-5) |
-| Availability | not a target: local demo, single node |
-| Quality | every OpenSpec scenario has an ExUnit test; `mix precommit` and frontend checks pass in CI |
-| Setup | `docker compose up` gives a working demo with seed data in < 5 min on a clean machine |
+| Area | Target | Measured (2026-11-17, see below) |
+|---|---|---|
+| Ingestion latency | p95 < 50 ms at 50 events/s | p95 6 ms, p99 6 ms at 50 events/s |
+| Ingestion throughput | ≥ 200 events/s sustained on one node | 1,000 events/s for 10 s with no failed request (p95 40 ms); not pushed further |
+| Time to first attempt | p95 < 2 s after ingestion when the queue is not backlogged | p95 16 ms at 50 events/s, 12 ms at 400 events/s; 1.6 s at 1,000 events/s, where the endpoint's queue (10 at a time) starts to back up |
+| Delivery throughput | ≥ 100 attempts/s with a fast receiver | 664 attempts/s to one fast endpoint |
+| Request timeouts | connect 5 s, receive 10 s (configurable) | |
+| Payload size | max 256 KB per event | |
+| Stored response body | first 4 KB | |
+| Backoff | base 10 s, factor 2, cap 1 h, with jitter → roughly 30–50 attempts in a 24 h window | |
+| Retention | configurable in days, default 30 (FR-37) | |
+| Delivery guarantee | at least once; no ordering guarantee | |
+| Durability | no accepted event lost on crash or restart (FR-5) | |
+| Availability | not a target: local demo, single node | |
+| Quality | every OpenSpec scenario has an ExUnit test; `mix precommit` and frontend checks pass in CI | |
+| Setup | `docker compose up` gives a working demo with seed data in < 5 min on a clean machine | |
+
+### How the numbers were measured
+
+`bin/load` (see "Load test" in `docs/architecture.md`) ran inside the `courier` container of the Docker demo, on an Apple M4 laptop (10 cores, 16 GB; Docker with 10 CPUs and 8 GB), against an idle demo with the seed data. The load client shares the container with the server, so the numbers are conservative for the server alone.
+
+| Run | Events | Result |
+|---|---|---|
+| Latency target | 1,500 at 50/s to Sunrise (fast endpoint) | ingestion p50 3 ms, p95 6 ms; first attempt p50 10 ms, p95 16 ms; 987 deliveries, all attempted |
+| Throughput | 6,000 at 400/s | all `202`; ingestion p95 5 ms, p99 21 ms; first attempt p95 12 ms; 267 attempts/s |
+| Higher load | 10,000 at 1,000/s | all `202`; ingestion p95 40 ms, p99 78 ms; first attempt p50 800 ms, p95 1.6 s; 664 attempts/s |
+| Isolation (FR-36) | 1,500 at 50/s to all three merchants | the four responsive endpoints keep first attempt p95 14 ms; `pine-timeout` backs up (503 of 511 deliveries not yet attempted after 30 s, p50 15 s for the attempted ones) without slowing the others |
 
 ## Constraints
 
