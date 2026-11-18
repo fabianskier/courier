@@ -88,6 +88,8 @@ The resend answers `202` with a new delivery, linked to the old one by `resend_o
 
 **10. Find a degraded endpoint and rotate its secret.** In the dashboard open **Endpoints**, turn on **Degraded only** and open `harbor-fail` (it shows as degraded once it has failed enough consecutive attempts; until then the filter is empty). Press **Rotate secret** and confirm: the new secret is shown once, with the time the previous one stops signing. Endpoints created in the dashboard are not registered with the demo receiver, so it cannot verify their signatures; it only knows the secrets the seeds registered.
 
+**11. Watch it update live.** In the dashboard keep **Failed** open (the indicator in the layout shows it is live). Run the simulator again (`bin/simulate` with Docker, or the command from step 4) and watch the list fill with new failed deliveries, and an open delivery gain attempts, without reloading; changes appear within a few seconds. If the server restarts, the indicator shows it is reconnecting, then live again, and the page refetches what it missed.
+
 **With Docker.** Only Docker is needed; this replaces steps 1 to 4.
 
 ```sh

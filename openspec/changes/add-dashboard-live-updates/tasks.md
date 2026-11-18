@@ -13,7 +13,7 @@ Each task must stay within the gate's diff budget (about 800 changed lines and 2
 
 ## 3. Docs
 
-- [ ] 3.1 Add a "Live updates" section to `docs/architecture.md` (notices, socket auth with the auth token header, topics, key re-check, client coalescing and reconnect), add a README demo step (keep the failed view open while `bin/simulate` runs and watch it fill without reloading), and mark step 12 done in `docs/roadmap.md` with step 13 next; verify `sh .smelt/checks.sh` and `openspec validate add-dashboard-live-updates --strict` pass and every scenario in `specs/` has a test with the same name
+- [x] 3.1 Add a "Live updates" section to `docs/architecture.md` (notices, socket auth with the auth token header, topics, key re-check, client coalescing and reconnect), add a README demo step (keep the failed view open while `bin/simulate` runs and watch it fill without reloading), and mark step 12 done in `docs/roadmap.md` with step 13 next; verify `sh .smelt/checks.sh` and `openspec validate add-dashboard-live-updates --strict` pass and every scenario in `specs/` has a test with the same name
 
 ## Workflow follow-up
 

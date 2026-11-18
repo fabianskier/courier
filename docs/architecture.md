@@ -107,7 +107,30 @@ Phoenix serves `assets/`, `favicon.ico` and `robots.txt` with `Plug.Static`, and
 
 **API client** (`src/lib/api/`). `apiFetch` adds the `Authorization: Bearer` header from the session, builds the query string from defined values only and throws `ApiError { status, code, message }` from the API's error shape (`status: 0` for a network failure). Types are written by hand from the JSON views; query keys live in one file. Merchant names and endpoint URLs come from one cached `GET /merchants?limit=100` and one `GET /endpoints?limit=100`, so lists need no request per row; an id not found there is shown shortened.
 
-**Lists and resend.** Lists are `useInfiniteQuery` over `next_cursor`, with a time range typed in the operator's time zone and sent as UTC. A resend button appears on `succeeded` and `failed` deliveries and is disabled for keys without the `write` scope. It asks for confirmation naming the endpoint, calls `POST /api/v1/deliveries/:id/resend`, and on success shows a toast and opens the new delivery; on an error (`409`, `422 endpoint_disabled`) the dialog shows the API's message. Lists refresh on navigation and on demand; live updates come with step 12. API text (payloads, bodies, errors) is always rendered as text.
+**Lists and resend.** Lists are `useInfiniteQuery` over `next_cursor`, with a time range typed in the operator's time zone and sent as UTC. A resend button appears on `succeeded` and `failed` deliveries and is disabled for keys without the `write` scope. It asks for confirmation naming the endpoint, calls `POST /api/v1/deliveries/:id/resend`, and on success shows a toast and opens the new delivery; on an error (`409`, `422 endpoint_disabled`) the dialog shows the API's message. Lists refresh on navigation, on demand and from change notices (see "Live updates"). API text (payloads, bodies, errors) is always rendered as text.
+
+## Live updates
+
+The dashboard refreshes itself within seconds of a change (FR-28). The server pushes small change notices over a Phoenix Channel and the SPA refetches over REST, so the REST API stays the only source of data.
+
+**Notices.** `Courier.Notices` broadcasts over `Courier.PubSub` after the change is committed (never inside a transaction, so a rolled-back change is never announced), from ingestion, attempt outcomes, the window sweeper, resend, endpoint health transitions, and the endpoint and merchant create, update and rotate functions. A failed broadcast never fails the change. Payloads carry ids and a status or type only, never payloads, response bodies, URLs or secrets.
+
+| Notice | PubSub topic | Payload | Sent when |
+|---|---|---|---|
+| `event_ingested` | `notices:events` | `id`, `merchant_id`, `type` | an event is stored |
+| `delivery_changed` | `notices:deliveries` | `id`, `event_id`, `endpoint_id`, `status` | a delivery is created, a retry is scheduled, or it succeeds, fails or is resent |
+| `endpoint_changed` | `notices:endpoints` | `id`, `merchant_id` | an endpoint is created, updated, has its secret rotated, becomes degraded or recovers |
+| `merchant_changed` | `notices:merchants` | `id` | a merchant is created or updated |
+
+**Socket authentication.** `CourierWeb.DashboardSocket` is mounted at `/socket` (WebSocket only). The client sends its API key as the WebSocket auth token, which Phoenix reads from the `Sec-WebSocket-Protocol` header (`auth_token: true` on the endpoint), so the key is never in a URL, a query string or an access log. The key must authenticate and have the `read` scope; anything else, including a missing token, is refused.
+
+**Topics.** `CourierWeb.DashboardChannel` serves `dashboard:events`, `dashboard:deliveries`, `dashboard:endpoints` and `dashboard:merchants`. Joining one subscribes the channel to the matching PubSub topic and pushes each notice to the client under its name; any other `dashboard:*` topic is refused. There are no per-merchant topics: any `read` key sees every notice, as it sees every resource over REST.
+
+**Key re-check.** Each joined channel re-checks its key every 30 seconds (`config :courier, CourierWeb.DashboardChannel, key_check_interval: ...`, in milliseconds). Once the key is revoked or has lost the `read` scope, the channel stops and the client's topic closes, so a revoked key stops receiving notices within about 30 seconds.
+
+**Client** (`frontend/src/lib/live/`). The `_app` layout calls `useLiveUpdates`, which connects with the key from the session, joins the four topics and maps each notice to the TanStack Query keys it makes stale: the lists of that resource, the changed resource's detail (and the event's detail for a delivery), and the endpoint and merchant lookups. Only active queries are refetched. A coalescer gathers a burst: the first notice waits 250 ms, and a key refetched less than a second ago waits for its window to end, so a resource is refetched at most about once a second however many notices arrive. Sign-out and a `401` close the socket.
+
+**Reconnect.** Phoenix's client reconnects with backoff. Notices are hints and are not replayed, so after a drop the first return to `live` refetches every active query once. The layout shows `LiveStatus` (connecting, live or reconnecting) as text.
 
 ## Code layout (proposed)
 

@@ -64,5 +64,7 @@ Steps 1 to 8 give a complete backend that can be demoed with `curl`, the demo re
 
 - Step 11, `add-dashboard-endpoints`: in the SPA, the merchants list and page (create, rename, disable/enable), the endpoints list with merchant and "degraded only" filters, the endpoint page with health and secret overlap, the create form, editing, disable/enable and secret rotation, secrets shown once (never cached or stored), and the `write` scope rule; `apiFetch` with JSON bodies and `ApiError.details`. Documented in `docs/architecture.md` ("Dashboard SPA") and in the README ("Local demo", step 10).
 
+- Step 12, `add-dashboard-live-updates`: `Courier.Notices` broadcasts ids-only change notices over PubSub after commit; `CourierWeb.DashboardSocket` at `/socket` (API key with the `read` scope sent as the WebSocket auth token) and `CourierWeb.DashboardChannel` with the topics `dashboard:events|deliveries|endpoints|merchants` and a 30 s key re-check; in the SPA, query invalidation from notices with coalescing (about one refetch per second per resource), a refetch of active queries after a reconnect, the `LiveStatus` indicator, and socket close on sign-out and `401`. Documented in `docs/architecture.md` ("Live updates") and in the README ("Local demo", step 11).
+
 **Next:**
-1. Step 12, `add-dashboard-live-updates`: PubSub broadcasts, `DashboardChannel`, query invalidation, reconnect.
+1. Step 13, `add-retention`: daily pruning job and the trigger exception.
