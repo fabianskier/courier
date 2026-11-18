@@ -227,7 +227,7 @@ Once an event is pruned, its `Idempotency-Key` can be reused: sending the same k
 
 ## How it is built
 
-Requirements and decisions come first; then each change is specified with [OpenSpec](https://github.com/Fission-AI/OpenSpec) and implemented task by task by AI agents (Claude Code) through **Smelt**, the author's private, personal software factory built in Elixir/OTP. Smelt runs each task in its own git worktree, checks it with a deterministic gate (protected tests, small diffs, spec validation, compile, format and tests) and merges only after human approval. Smelt is not required to build or run courier.
+Requirements and decisions come first; then each change is specified with [OpenSpec](https://github.com/Fission-AI/OpenSpec) and implemented task by task by AI agents (Claude Code) through **[Smelt](https://github.com/fabianskier/smelt)**, the author's own software factory built in Elixir/OTP, public for review under an "all rights reserved" notice. Smelt runs each task in its own git worktree, checks it with a deterministic gate (protected tests, small diffs, spec validation, compile, format and tests) and merges only after human approval. Smelt is not required to build, run or test courier.
 
 More in [docs/development.md](docs/development.md), including what Smelt does today and what is still to come.
 

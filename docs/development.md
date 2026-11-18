@@ -4,7 +4,7 @@ courier is developed with a spec-driven, agent-assisted workflow. Requirements a
 
 ## Smelt
 
-**Smelt** is the author's own software factory: a private, personal tool written in Elixir/OTP. It is not open source and is not needed to build, run or test courier; it only changes *how* the code gets written.
+**Smelt** is the author's own software factory: written in Elixir/OTP and public for review at <https://github.com/fabianskier/smelt> under an "all rights reserved" notice. It is not open source and is not needed to build, run or test courier; it only changes *how* the code gets written.
 
 ### What it does
 
